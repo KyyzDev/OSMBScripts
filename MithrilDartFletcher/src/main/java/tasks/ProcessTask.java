@@ -82,11 +82,7 @@ public class ProcessTask extends Task {
 
         return true;
     }
-
-    /**
-     * Click first -> tiny minimum delay -> refresh -> click second.
-     * If the second click fails, unselect and retry once (with the same safe delay).
-     */
+    
     private boolean combinePair(ItemGroupResult inv, int firstId, int secondId, int tipId) {
 
         if (!clickInventoryItem(inv, firstId, true) && !clickInventoryItem(inv, firstId, false)) {
@@ -123,11 +119,7 @@ public class ProcessTask extends Task {
 
         return clickInventoryItem(inv, secondId, true) || clickInventoryItem(inv, secondId, false);
     }
-
-    /**
-     * Clicks an inventory item, attempting to bypass the humanised delay if supported.
-     * Falls back to normal interact() if no such overload exists.
-     */
+    
     private boolean clickInventoryItem(ItemGroupResult inv, int itemId, boolean bypassHumanDelay) {
         try {
             var item = inv.getRandomItem(itemId);
