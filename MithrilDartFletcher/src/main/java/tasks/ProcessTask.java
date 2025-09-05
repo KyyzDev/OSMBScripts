@@ -14,7 +14,6 @@ public class ProcessTask extends Task {
     public ProcessTask(Script script) { super(script); }
 
     private long pairCompletionsTotal = 0;
-
     private static volatile boolean bypassChecked = false;
     private static volatile Method interactBypass = null;
 
@@ -35,7 +34,12 @@ public class ProcessTask extends Task {
         ItemGroupResult inv = script.getWidgetManager()
                 .getInventory()
                 .search(Set.of(PrimaryIngredientID, tipId));
-        if (inv == null || !inv.contains(PrimaryIngredientID) || !inv.contains(tipId)) return false;
+        if (inv == null || !inv.contains(PrimaryIngredientID) || !inv.contains(tipId)) {
+            task = "Out of supplies";
+            script.log("INFO", "Stopping script: missing feathers/headless darts or dart tips.");
+            script.stop();
+            return false;
+        }
 
         if (!bypassChecked) {
             try {
@@ -48,9 +52,7 @@ public class ProcessTask extends Task {
         }
 
         final int sequencesThisTick = Math.max(5, tapSpeed * 40);
-
         final int[] SEQUENCE = new int[] { PrimaryIngredientID, tipId, tipId, PrimaryIngredientID };
-
         int lastClicked = -1;
 
         for (int n = 0; n < sequencesThisTick; n++) {
@@ -63,15 +65,9 @@ public class ProcessTask extends Task {
                     craftCount += 10;
                     pairCompletionsTotal++;
 
-                    if (script.random(0, 49) == 0) {
-                        script.sleep(script.random(1, 3));
-                    }
-                    if (pairCompletionsTotal % script.random(35, 70) == 0) {
-                        script.sleep(script.random(10, 22));
-                    }
-                    if (pairCompletionsTotal % script.random(280, 480) == 0) {
-                        script.sleep(script.random(50, 120));
-                    }
+                    if (script.random(0, 49) == 0) script.sleep(script.random(1, 3));
+                    if (pairCompletionsTotal % script.random(35, 70) == 0) script.sleep(script.random(10, 22));
+                    if (pairCompletionsTotal % script.random(280, 480) == 0) script.sleep(script.random(50, 120));
                 } else {
                     script.getWidgetManager().getInventory().unSelectItemIfSelected();
                 }
@@ -79,47 +75,36 @@ public class ProcessTask extends Task {
                 lastClicked = id;
             }
         }
-
         return true;
     }
-    
-    private boolean combinePair(ItemGroupResult inv, int firstId, int secondId, int tipId) {
 
-        if (!clickInventoryItem(inv, firstId, true) && !clickInventoryItem(inv, firstId, false)) {
-            return false;
-        }
+    private boolean combinePair(ItemGroupResult inv, int firstId, int secondId, int tipId) {
+        if (!clickInventoryItem(inv, firstId, true) && !clickInventoryItem(inv, firstId, false)) return false;
 
         final int minDelay = (tapSpeed >= 95) ? script.random(14, 20) : script.random(18, 28);
         script.sleep(minDelay);
 
-        inv = script.getWidgetManager().getInventory()
-                .search(Set.of(PrimaryIngredientID, tipId));
+        inv = script.getWidgetManager().getInventory().search(Set.of(PrimaryIngredientID, tipId));
         if (inv == null) return false;
 
-        if (clickInventoryItem(inv, secondId, true) || clickInventoryItem(inv, secondId, false)) {
-            return true;
-        }
+        if (clickInventoryItem(inv, secondId, true) || clickInventoryItem(inv, secondId, false)) return true;
 
         script.getWidgetManager().getInventory().unSelectItemIfSelected();
         script.sleep(script.random(4, 8));
 
-        inv = script.getWidgetManager().getInventory()
-                .search(Set.of(PrimaryIngredientID, tipId));
+        inv = script.getWidgetManager().getInventory().search(Set.of(PrimaryIngredientID, tipId));
         if (inv == null) return false;
 
-        if (!clickInventoryItem(inv, firstId, true) && !clickInventoryItem(inv, firstId, false)) {
-            return false;
-        }
+        if (!clickInventoryItem(inv, firstId, true) && !clickInventoryItem(inv, firstId, false)) return false;
 
         script.sleep(minDelay);
 
-        inv = script.getWidgetManager().getInventory()
-                .search(Set.of(PrimaryIngredientID, tipId));
+        inv = script.getWidgetManager().getInventory().search(Set.of(PrimaryIngredientID, tipId));
         if (inv == null) return false;
 
         return clickInventoryItem(inv, secondId, true) || clickInventoryItem(inv, secondId, false);
     }
-    
+
     private boolean clickInventoryItem(ItemGroupResult inv, int itemId, boolean bypassHumanDelay) {
         try {
             var item = inv.getRandomItem(itemId);
@@ -131,7 +116,6 @@ public class ProcessTask extends Task {
             }
 
             return item.interact();
-
         } catch (Throwable t) {
             return false;
         }
