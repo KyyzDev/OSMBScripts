@@ -11,98 +11,105 @@ import static main.MithrilDartFletcher.*;
 
 public class ProcessTask extends Task {
 
-    public ProcessTask(Script script) { super(script); }
+    private enum Phase { FIRST_CLICK, WAIT_MIN, SECOND_CLICK, COOLDOWN }
+    private Phase phase = Phase.FIRST_CLICK;
 
-    private long pairCompletionsTotal = 0;
+    private boolean firstIsPrimary = true;
+
+    private long nextAtMs = 0;     
+    private int  minDelayMs = 20;  
+
     private static volatile boolean bypassChecked = false;
-    private static volatile Method interactBypass = null;
+    private static volatile Method  interactBypass = null;
+
+    private long pairsDone = 0;
+
+    public ProcessTask(Script script) { super(script); }
 
     @Override
     public boolean activate() {
-        final int tipId = SelectedDartTipID;
-        ItemGroupResult inv = script.getWidgetManager()
-                .getInventory()
-                .search(Set.of(PrimaryIngredientID, tipId));
-        return inv != null && inv.contains(PrimaryIngredientID) && inv.contains(tipId);
+        ItemGroupResult inv = script.getWidgetManager().getInventory()
+                .search(Set.of(PrimaryIngredientID, SelectedDartTipID));
+        boolean hasSupplies = inv != null && inv.contains(PrimaryIngredientID) && inv.contains(SelectedDartTipID);
+        return hasSupplies || phase != Phase.FIRST_CLICK;
     }
 
     @Override
     public boolean execute() {
-        task = "Fletching Darts";
+        task = "Fletching Darts (non-blocking)";
 
-        final int tipId = SelectedDartTipID;
-        ItemGroupResult inv = script.getWidgetManager()
-                .getInventory()
-                .search(Set.of(PrimaryIngredientID, tipId));
-        if (inv == null || !inv.contains(PrimaryIngredientID) || !inv.contains(tipId)) {
-            task = "Out of supplies";
-            script.log("INFO", "Stopping script: missing feathers/headless darts or dart tips.");
-            script.stop();
-            return false;
-        }
+        if (System.currentTimeMillis() < nextAtMs) return true;
+
+        ItemGroupResult inv = script.getWidgetManager().getInventory()
+                .search(Set.of(PrimaryIngredientID, SelectedDartTipID));
+        if (inv == null) return true;
 
         if (!bypassChecked) {
             try {
-                var sample = inv.getRandomItem(PrimaryIngredientID);
-                if (sample != null) {
-                    interactBypass = sample.getClass().getMethod("interact", boolean.class);
-                }
+                var probe = inv.getRandomItem(PrimaryIngredientID);
+                if (probe != null) interactBypass = probe.getClass().getMethod("interact", boolean.class);
             } catch (Throwable ignored) {}
             bypassChecked = true;
         }
 
-        final int sequencesThisTick = Math.max(5, tapSpeed * 40);
-        final int[] SEQUENCE = new int[] { PrimaryIngredientID, tipId, tipId, PrimaryIngredientID };
-        int lastClicked = -1;
+        switch (phase) {
+            case FIRST_CLICK -> {
+                final int firstId  = firstIsPrimary ? PrimaryIngredientID : SelectedDartTipID;
 
-        for (int n = 0; n < sequencesThisTick; n++) {
-            for (int id : SEQUENCE) {
-                final int firstId  = (lastClicked == PrimaryIngredientID || id == PrimaryIngredientID)
-                        ? PrimaryIngredientID : tipId;
-                final int secondId = (firstId == PrimaryIngredientID) ? tipId : PrimaryIngredientID;
-
-                if (combinePair(inv, firstId, secondId, tipId)) {
-                    craftCount += 10;
-                    pairCompletionsTotal++;
-
-                    if (script.random(0, 49) == 0) script.sleep(script.random(1, 3));
-                    if (pairCompletionsTotal % script.random(35, 70) == 0) script.sleep(script.random(10, 22));
-                    if (pairCompletionsTotal % script.random(280, 480) == 0) script.sleep(script.random(50, 120));
-                } else {
+                if (!clickInventoryItem(inv, firstId, /*bypass*/true) &&
+                        !clickInventoryItem(inv, firstId, /*bypass*/false)) {
                     script.getWidgetManager().getInventory().unSelectItemIfSelected();
+                    return true;
                 }
 
-                lastClicked = id;
+                minDelayMs = (tapSpeed >= 95) ? script.random(14, 20) : script.random(18, 28);
+                nextAtMs = System.currentTimeMillis() + minDelayMs;
+                phase = Phase.WAIT_MIN;
+                return true;
+            }
+
+            case WAIT_MIN -> {
+                phase = Phase.SECOND_CLICK;
+                return true;
+            }
+
+            case SECOND_CLICK -> {
+                inv = script.getWidgetManager().getInventory()
+                        .search(Set.of(PrimaryIngredientID, SelectedDartTipID));
+                if (inv == null) return true;
+
+                final int secondId = firstIsPrimary ? SelectedDartTipID : PrimaryIngredientID;
+
+                if (clickInventoryItem(inv, secondId, /*bypass*/true) ||
+                        clickInventoryItem(inv, secondId, /*bypass*/false)) {
+                    craftCount += 10;
+                    pairsDone++;
+                    phase = Phase.COOLDOWN;
+
+                    if (script.random(0, 49) == 0)                     nextAtMs = System.currentTimeMillis() + script.random(1, 3);
+                    else if (pairsDone % script.random(35, 70) == 0)   nextAtMs = System.currentTimeMillis() + script.random(10, 22);
+                    else if (pairsDone % script.random(280, 480) == 0) nextAtMs = System.currentTimeMillis() + script.random(50, 120);
+                    else                                                nextAtMs = System.currentTimeMillis();
+
+                    firstIsPrimary = !firstIsPrimary;
+                    return true;
+                }
+
+                script.getWidgetManager().getInventory().unSelectItemIfSelected();
+                phase = Phase.FIRST_CLICK;
+                nextAtMs = System.currentTimeMillis();
+                return true;
+            }
+
+            case COOLDOWN -> {
+                if (System.currentTimeMillis() >= nextAtMs) {
+                    phase = Phase.FIRST_CLICK;
+                }
+                return true;
             }
         }
+
         return true;
-    }
-
-    private boolean combinePair(ItemGroupResult inv, int firstId, int secondId, int tipId) {
-        if (!clickInventoryItem(inv, firstId, true) && !clickInventoryItem(inv, firstId, false)) return false;
-
-        final int minDelay = (tapSpeed >= 95) ? script.random(14, 20) : script.random(18, 28);
-        script.sleep(minDelay);
-
-        inv = script.getWidgetManager().getInventory().search(Set.of(PrimaryIngredientID, tipId));
-        if (inv == null) return false;
-
-        if (clickInventoryItem(inv, secondId, true) || clickInventoryItem(inv, secondId, false)) return true;
-
-        script.getWidgetManager().getInventory().unSelectItemIfSelected();
-        script.sleep(script.random(4, 8));
-
-        inv = script.getWidgetManager().getInventory().search(Set.of(PrimaryIngredientID, tipId));
-        if (inv == null) return false;
-
-        if (!clickInventoryItem(inv, firstId, true) && !clickInventoryItem(inv, firstId, false)) return false;
-
-        script.sleep(minDelay);
-
-        inv = script.getWidgetManager().getInventory().search(Set.of(PrimaryIngredientID, tipId));
-        if (inv == null) return false;
-
-        return clickInventoryItem(inv, secondId, true) || clickInventoryItem(inv, secondId, false);
     }
 
     private boolean clickInventoryItem(ItemGroupResult inv, int itemId, boolean bypassHumanDelay) {
@@ -114,9 +121,8 @@ public class ProcessTask extends Task {
                 Object ok = interactBypass.invoke(item, true);
                 if (ok instanceof Boolean && (Boolean) ok) return true;
             }
-
             return item.interact();
-        } catch (Throwable t) {
+        } catch (Throwable ignored) {
             return false;
         }
     }
