@@ -43,12 +43,25 @@ public class Setup extends Task {
         script.log("INFO", "Script will ONLY click highlighted NPCs!");
         script.log("INFO", "");
 
-        // Open inventory tab
+        task = "Ensuring chatbox is open";
+        script.log("INFO", "Ensuring chatbox is open for tracking...");
+        try {
+            com.osmb.api.ui.chatbox.Chatbox chatbox = script.getWidgetManager().getChatbox();
+            if (chatbox != null && !chatbox.isOpen()) {
+                chatbox.open();
+                script.submitTask(() -> false, 500);
+                script.log("INFO", "Opened chatbox!");
+            } else {
+                script.log("INFO", "Chatbox already open!");
+            }
+        } catch (Exception e) {
+            script.log("WARN", "Could not check/open chatbox: " + e.getMessage());
+        }
+
         task = "Open inventory tab";
         script.log("INFO", "Opening inventory tab...");
         script.getWidgetManager().getTabManager().openTab(Tab.Type.INVENTORY);
 
-        // Check if we have food in inventory (if eating is enabled and foodItemId is valid)
         if (eatFood && foodItemId > 0) {
             script.log("INFO", "Checking for food in inventory...");
             com.osmb.api.item.ItemGroupResult inv = script.getWidgetManager().getInventory().search(java.util.Set.of(foodItemId));

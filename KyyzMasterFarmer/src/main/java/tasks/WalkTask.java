@@ -18,7 +18,6 @@ public class WalkTask extends Task {
             return false;
         }
 
-        // Activate if we're not at the Draynor Master Farmer location
         WorldPosition currentPos = script.getWorldPosition();
         if (currentPos == null) {
             return false;
@@ -26,7 +25,6 @@ public class WalkTask extends Task {
 
         double distance = currentPos.distanceTo(DRAYNOR_FARMER_LOCATION);
 
-        // If we're more than 10 tiles away from Draynor, walk there
         return distance > 10;
     }
 

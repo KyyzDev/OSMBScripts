@@ -11,7 +11,16 @@ import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
+import java.util.prefs.Preferences;
+
 public class ScriptUI {
+    private final Preferences prefs = Preferences.userNodeForPackage(ScriptUI.class);
+
+    private static final String PREF_WEBHOOK_ENABLED = "kyyz_masterfarmer_webhook_enabled";
+    private static final String PREF_WEBHOOK_URL = "kyyz_masterfarmer_webhook_url";
+    private static final String PREF_WEBHOOK_INTERVAL = "kyyz_masterfarmer_webhook_interval";
+    private static final String PREF_WEBHOOK_INCLUDE_USER = "kyyz_masterfarmer_webhook_include_user";
+
     private final Script script;
     private Slider hpThresholdSlider;
     private Slider foodAmountSlider;
@@ -21,46 +30,10 @@ public class ScriptUI {
     private Label hpValueLabel;
     private Label foodAmountLabel;
 
-    public enum NPCType {
-        MAN("Man", 1, 8),
-        FARMER("Farmer", 10, 14),
-        FEMALE_HAM("Female H.A.M. Member", 15, 18),
-        MALE_HAM("Male H.A.M. Member", 20, 22),
-        WARRIOR("Warrior", 25, 26),
-        ROGUE("Rogue", 32, 36),
-        MASTER_FARMER("Master Farmer", 38, 43),
-        GUARD("Guard", 40, 47),
-        PALADIN("Paladin", 55, 84),
-        KNIGHT("Knight of Ardougne", 55, 84),
-        HERO("Hero", 80, 275);
-
-        private final String npcName;
-        private final int requiredLevel;
-        private final int xp;
-
-        NPCType(String npcName, int requiredLevel, int xp) {
-            this.npcName = npcName;
-            this.requiredLevel = requiredLevel;
-            this.xp = xp;
-        }
-
-        public String getNpcName() {
-            return npcName;
-        }
-
-        public int getRequiredLevel() {
-            return requiredLevel;
-        }
-
-        public int getXp() {
-            return xp;
-        }
-
-        @Override
-        public String toString() {
-            return npcName + " (Lvl " + requiredLevel + " | " + xp + " XP)";
-        }
-    }
+    private CheckBox webhookEnabledCheckBox;
+    private TextField webhookUrlField;
+    private ComboBox<Integer> webhookIntervalComboBox;
+    private CheckBox includeUsernameCheckBox;
 
     public enum LootMode {
         DROP_ALL("Drop All"),
@@ -132,21 +105,20 @@ public class ScriptUI {
     }
 
     public Scene buildScene(Script script) {
-        // Root container
         VBox root = new VBox(15);
         root.setPadding(new Insets(20, 25, 20, 25));
         root.setAlignment(Pos.TOP_CENTER);
-        root.setStyle("-fx-background-color: #3E3529;"); // OSRS brown background
+        root.setStyle("-fx-background-color: #3E3529;"); 
 
-        // Title
+        
         Label titleLabel = new Label("Kyyz Master Farmer");
         titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        titleLabel.setStyle("-fx-text-fill: #FFD700;"); // Gold color
+        titleLabel.setStyle("-fx-text-fill: #FFD700;"); 
 
         Label versionLabel = new Label("v1.0");
         versionLabel.setStyle("-fx-text-fill: #C9C9C9; -fx-font-size: 10px;");
 
-        // === SINGLE SETTINGS BOX ===
+        
         VBox settingsBox = new VBox(15);
         settingsBox.setPadding(new Insets(18));
         settingsBox.setStyle(
@@ -157,12 +129,12 @@ public class ScriptUI {
             "-fx-border-radius: 0;"
         );
 
-        // FOOD SETTINGS
+        
         Label foodTitle = new Label("Food Settings");
         foodTitle.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-        foodTitle.setStyle("-fx-text-fill: #FF9800; -fx-padding: 0 0 5 0;"); // OSRS orange
+        foodTitle.setStyle("-fx-text-fill: #FF9800; -fx-padding: 0 0 5 0;"); 
 
-        // Food type dropdown
+        
         Label foodTypeLabel = new Label("Food type:");
         foodTypeLabel.setStyle("-fx-text-fill: #FFFFFF; -fx-font-size: 11px;");
 
@@ -179,7 +151,7 @@ public class ScriptUI {
             "-fx-border-radius: 0;"
         );
 
-        // Add custom cell factory to show food icons
+        
         foodComboBox.setCellFactory(lv -> new ListCell<FoodType>() {
             @Override
             protected void updateItem(FoodType food, boolean empty) {
@@ -191,12 +163,12 @@ public class ScriptUI {
                 } else {
                     setText(food.toString());
                     if (food == FoodType.NO_FOOD) {
-                        // Create custom red X for NO_FOOD option (same size as food icons)
+                        
                         javafx.scene.canvas.Canvas canvas = new javafx.scene.canvas.Canvas(28, 28);
                         javafx.scene.canvas.GraphicsContext gc = canvas.getGraphicsContext2D();
                         gc.setStroke(javafx.scene.paint.Color.RED);
                         gc.setLineWidth(3);
-                        // Draw X that fills more of the 28x28 space like food icons
+                        
                         gc.strokeLine(6, 6, 22, 22);
                         gc.strokeLine(22, 6, 6, 22);
                         setGraphic(canvas);
@@ -207,7 +179,7 @@ public class ScriptUI {
                                 foodIcon.setFitWidth(28);
                                 foodIcon.setFitHeight(28);
                                 foodIcon.setPreserveRatio(true);
-                                foodIcon.setSmooth(false); // Pixel art shouldn't be smoothed
+                                foodIcon.setSmooth(false); 
                                 setGraphic(foodIcon);
                             } else {
                                 setGraphic(null);
@@ -217,7 +189,7 @@ public class ScriptUI {
                             script.log("WARN", "Failed to load icon for " + food.getFoodName());
                         }
                     }
-                    // Add bottom border separator after NO_FOOD
+                    
                     if (food == FoodType.NO_FOOD) {
                         setStyle(
                             "-fx-background-color: #1A1510; " +
@@ -252,7 +224,7 @@ public class ScriptUI {
             }
         });
 
-        // Also set button cell (what shows when dropdown is closed)
+        
         foodComboBox.setButtonCell(new ListCell<FoodType>() {
             @Override
             protected void updateItem(FoodType food, boolean empty) {
@@ -263,12 +235,12 @@ public class ScriptUI {
                 } else {
                     setText(food.toString());
                     if (food == FoodType.NO_FOOD) {
-                        // Create custom red X for NO_FOOD option (same size as food icons)
+                        
                         javafx.scene.canvas.Canvas canvas = new javafx.scene.canvas.Canvas(28, 28);
                         javafx.scene.canvas.GraphicsContext gc = canvas.getGraphicsContext2D();
                         gc.setStroke(javafx.scene.paint.Color.RED);
                         gc.setLineWidth(3);
-                        // Draw X that fills more of the 28x28 space like food icons
+                        
                         gc.strokeLine(6, 6, 22, 22);
                         gc.strokeLine(22, 6, 6, 22);
                         setGraphic(canvas);
@@ -279,7 +251,7 @@ public class ScriptUI {
                                 foodIcon.setFitWidth(28);
                                 foodIcon.setFitHeight(28);
                                 foodIcon.setPreserveRatio(true);
-                                foodIcon.setSmooth(false); // Pixel art shouldn't be smoothed
+                                foodIcon.setSmooth(false); 
                                 setGraphic(foodIcon);
                             } else {
                                 setGraphic(null);
@@ -299,7 +271,7 @@ public class ScriptUI {
             }
         });
 
-        // HP Threshold Slider
+        
         VBox hpSliderBox = new VBox(5);
         HBox hpLabelBox = new HBox();
         hpLabelBox.setAlignment(Pos.CENTER_LEFT);
@@ -323,7 +295,7 @@ public class ScriptUI {
 
         hpSliderBox.getChildren().addAll(hpLabelBox, hpThresholdSlider);
 
-        // Food Amount Slider
+        
         VBox foodAmountBox = new VBox(5);
         HBox foodAmountLabelBox = new HBox();
         foodAmountLabelBox.setAlignment(Pos.CENTER_LEFT);
@@ -347,16 +319,16 @@ public class ScriptUI {
 
         foodAmountBox.getChildren().addAll(foodAmountLabelBox, foodAmountSlider);
 
-        // Add listener to hide/show sliders when NO_FOOD is selected
+        
         foodComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal == FoodType.NO_FOOD) {
-                // Hide both sliders when NO_FOOD is selected
+                
                 hpSliderBox.setVisible(false);
                 hpSliderBox.setManaged(false);
                 foodAmountBox.setVisible(false);
                 foodAmountBox.setManaged(false);
             } else {
-                // Show sliders when any actual food is selected
+                
                 hpSliderBox.setVisible(true);
                 hpSliderBox.setManaged(true);
                 foodAmountBox.setVisible(true);
@@ -364,7 +336,7 @@ public class ScriptUI {
             }
         });
 
-        // LOOT MODE - Dropdown
+        
         Label lootTitle = new Label("Loot mode:");
         lootTitle.setStyle("-fx-text-fill: #FFFFFF; -fx-font-size: 11px; -fx-padding: 10 0 0 0;");
 
@@ -381,7 +353,7 @@ public class ScriptUI {
             "-fx-border-radius: 0;"
         );
 
-        // Add custom cell factory for loot mode dropdown (same style as food)
+        
         lootModeComboBox.setCellFactory(lv -> new ListCell<LootMode>() {
             @Override
             protected void updateItem(LootMode lootMode, boolean empty) {
@@ -414,7 +386,7 @@ public class ScriptUI {
             }
         });
 
-        // Also set button cell (what shows when dropdown is closed)
+        
         lootModeComboBox.setButtonCell(new ListCell<LootMode>() {
             @Override
             protected void updateItem(LootMode lootMode, boolean empty) {
@@ -433,7 +405,7 @@ public class ScriptUI {
             }
         });
 
-        // SEED BOX - Premium styled container with icon
+        
         HBox seedBoxContainer = new HBox(12);
         seedBoxContainer.setAlignment(Pos.CENTER);
         seedBoxContainer.setStyle(
@@ -446,14 +418,14 @@ public class ScriptUI {
             "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 4, 0, 0, 2);"
         );
 
-        // Add seed box icon with glow effect
+        
         try {
-            ImageView seedBoxIcon = JavaFXUtils.getItemImageView(script, 13639); // Seed box ID
+            ImageView seedBoxIcon = JavaFXUtils.getItemImageView(script, 13639); 
             if (seedBoxIcon != null) {
                 seedBoxIcon.setFitWidth(36);
                 seedBoxIcon.setFitHeight(36);
                 seedBoxIcon.setPreserveRatio(true);
-                seedBoxIcon.setSmooth(false); // Pixel art
+                seedBoxIcon.setSmooth(false); 
                 seedBoxIcon.setStyle("-fx-effect: dropshadow(gaussian, rgba(255, 215, 0, 0.6), 8, 0.5, 0, 0);");
                 seedBoxContainer.getChildren().add(seedBoxIcon);
             }
@@ -471,6 +443,64 @@ public class ScriptUI {
 
         seedBoxContainer.getChildren().add(useSeedBoxCheckBox);
 
+        Label webhookTitle = new Label("Webhook Settings");
+        webhookTitle.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        webhookTitle.setStyle("-fx-text-fill: #FF9800; -fx-padding: 10 0 5 0;");
+
+        webhookEnabledCheckBox = new CheckBox("Enable Discord Webhook");
+        webhookEnabledCheckBox.setSelected(prefs.getBoolean(PREF_WEBHOOK_ENABLED, false));
+        webhookEnabledCheckBox.setStyle("-fx-text-fill: #FFFFFF; -fx-font-size: 11px;");
+
+        webhookUrlField = new TextField();
+        webhookUrlField.setPromptText("Discord Webhook URL...");
+        webhookUrlField.setText(prefs.get(PREF_WEBHOOK_URL, ""));
+        webhookUrlField.setDisable(!webhookEnabledCheckBox.isSelected());
+        webhookUrlField.setStyle(
+            "-fx-font-size: 11px; " +
+            "-fx-background-color: #1A1510; " +
+            "-fx-text-fill: #FFFFFF; " +
+            "-fx-border-color: #5A4A3A; " +
+            "-fx-border-width: 1; " +
+            "-fx-background-radius: 0; " +
+            "-fx-border-radius: 0;"
+        );
+
+        HBox intervalBox = new HBox(10);
+        intervalBox.setAlignment(Pos.CENTER_LEFT);
+        Label intervalLabel = new Label("Interval (min):");
+        intervalLabel.setStyle("-fx-text-fill: #FFFFFF; -fx-font-size: 11px;");
+
+        webhookIntervalComboBox = new ComboBox<>();
+        for (int i = 1; i <= 60; i++) webhookIntervalComboBox.getItems().add(i);
+        webhookIntervalComboBox.getSelectionModel().select(Integer.valueOf(prefs.getInt(PREF_WEBHOOK_INTERVAL, 5)) - 1);
+        webhookIntervalComboBox.setDisable(!webhookEnabledCheckBox.isSelected());
+        webhookIntervalComboBox.setMaxWidth(100);
+        webhookIntervalComboBox.setStyle(
+            "-fx-font-size: 11px; " +
+            "-fx-background-color: #1A1510; " +
+            "-fx-border-color: #5A4A3A; " +
+            "-fx-border-width: 1; " +
+            "-fx-background-radius: 0; " +
+            "-fx-border-radius: 0;"
+        );
+
+        includeUsernameCheckBox = new CheckBox("Include Username");
+        includeUsernameCheckBox.setSelected(prefs.getBoolean(PREF_WEBHOOK_INCLUDE_USER, true));
+        includeUsernameCheckBox.setDisable(!webhookEnabledCheckBox.isSelected());
+        includeUsernameCheckBox.setStyle("-fx-text-fill: #FFFFFF; -fx-font-size: 11px;");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        intervalBox.getChildren().addAll(intervalLabel, webhookIntervalComboBox, spacer, includeUsernameCheckBox);
+
+        webhookEnabledCheckBox.setOnAction(e -> {
+            boolean enabled = webhookEnabledCheckBox.isSelected();
+            webhookUrlField.setDisable(!enabled);
+            webhookIntervalComboBox.setDisable(!enabled);
+            includeUsernameCheckBox.setDisable(!enabled);
+        });
+
         settingsBox.getChildren().addAll(
             foodTitle,
             foodTypeLabel,
@@ -479,10 +509,14 @@ public class ScriptUI {
             foodAmountBox,
             lootTitle,
             lootModeComboBox,
-            seedBoxContainer
+            seedBoxContainer,
+            webhookTitle,
+            webhookEnabledCheckBox,
+            webhookUrlField,
+            intervalBox
         );
 
-        // Start button
+        
         Button startButton = new Button("START SCRIPT");
         startButton.setMaxWidth(Double.MAX_VALUE);
         startButton.setPrefHeight(38);
@@ -527,6 +561,7 @@ public class ScriptUI {
         );
 
         startButton.setOnAction(e -> {
+            saveSettings();
             ((javafx.stage.Stage) startButton.getScene().getWindow()).close();
         });
 
@@ -537,12 +572,10 @@ public class ScriptUI {
             startButton
         );
 
-        // Auto-size the scene with brown background
         Scene scene = new Scene(root);
-        scene.setFill(javafx.scene.paint.Color.web("#3E3529")); // Set scene background to brown
+        scene.setFill(javafx.scene.paint.Color.web("#3E3529"));
         scene.getRoot().autosize();
 
-        // Load the OSRS-style CSS
         try {
             String css = getClass().getResource("/style.css").toExternalForm();
             scene.getStylesheets().add(css);
@@ -554,6 +587,13 @@ public class ScriptUI {
         return scene;
     }
 
+    private void saveSettings() {
+        prefs.putBoolean(PREF_WEBHOOK_ENABLED, isWebhookEnabled());
+        prefs.put(PREF_WEBHOOK_URL, getWebhookUrl());
+        prefs.putInt(PREF_WEBHOOK_INTERVAL, getWebhookInterval());
+        prefs.putBoolean(PREF_WEBHOOK_INCLUDE_USER, isUsernameIncluded());
+    }
+
     private void showAlert(String message) {
         Alert alert = new Alert(Alert.AlertType.WARNING);
         alert.setTitle("Error");
@@ -563,7 +603,7 @@ public class ScriptUI {
     }
 
     public boolean shouldEatFood() {
-        return true; // Always eat food (checkbox removed from UI)
+        return true; 
     }
 
     public int getHpThreshold() {
@@ -584,5 +624,23 @@ public class ScriptUI {
 
     public boolean useSeedBox() {
         return useSeedBoxCheckBox.isSelected();
+    }
+
+    public boolean isWebhookEnabled() {
+        return webhookEnabledCheckBox != null && webhookEnabledCheckBox.isSelected();
+    }
+
+    public String getWebhookUrl() {
+        return webhookUrlField != null ? webhookUrlField.getText().trim() : "";
+    }
+
+    public int getWebhookInterval() {
+        return webhookIntervalComboBox != null && webhookIntervalComboBox.getValue() != null
+                ? webhookIntervalComboBox.getValue()
+                : 5;
+    }
+
+    public boolean isUsernameIncluded() {
+        return includeUsernameCheckBox != null && includeUsernameCheckBox.isSelected();
     }
 }

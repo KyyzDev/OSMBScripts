@@ -18,15 +18,18 @@ import static main.KyyzMasterFarmer.*;
 
 public class ThieveTask extends Task {
 
-    // Cyan highlight colors used by OSRS entity highlighting
-    // -14155777 = 0xFF27FFFF (bright cyan)
-    // -2171877 = 0xFFDEDC1B (yellow-ish highlight variation)
-    // 0xFF05F8F8 = original cyan setting
+    
+    
+    
+    
     private static final SearchablePixel[] CYAN_HIGHLIGHT = new SearchablePixel[]{
             new SearchablePixel(-14155777, new SingleThresholdComparator(15), ColorModel.RGB),
             new SearchablePixel(-2171877, new SingleThresholdComparator(15), ColorModel.RGB),
             new SearchablePixel(0xFF05F8F8, new SingleThresholdComparator(15), ColorModel.RGB),
     };
+
+    
+    private java.util.Set<String> processedMessages = new java.util.HashSet<>();
 
     public ThieveTask(Script script) {
         super(script);
@@ -38,13 +41,20 @@ public class ThieveTask extends Task {
             return false;
         }
 
-        // CRITICAL: Do NOT pickpocket if HP is low and we need to eat!
+        
         if (eatFood) {
             Integer currentHp = script.getWidgetManager().getMinimapOrbs().getHitpoints();
             if (currentHp != null && currentHp <= hpThreshold) {
                 script.log("DEBUG", "ThieveTask: HP is " + currentHp + " (threshold: " + hpThreshold + ") - NOT pickpocketing, letting EatTask handle it!");
-                return false;  // Let EatTask activate instead
+                return false;  
             }
+        }
+
+        
+        com.osmb.api.item.ItemGroupResult inv = script.getWidgetManager().getInventory().search(java.util.Collections.emptySet());
+        if (inv != null && inv.isFull()) {
+            script.log("DEBUG", "ThieveTask: Inventory is full - NOT pickpocketing, letting ManageLootTask handle it!");
+            return false;  
         }
 
         return true;
@@ -54,7 +64,7 @@ public class ThieveTask extends Task {
     public boolean execute() {
         task = "Pickpocketing " + targetNPC;
 
-        // Get NPC positions from minimap
+        
         UIResultList<WorldPosition> npcPositions = script.getWidgetManager().getMinimap().getNPCPositions();
 
         if (npcPositions.isNotVisible() || npcPositions.isNotFound()) {
@@ -62,16 +72,14 @@ public class ThieveTask extends Task {
             return false;
         }
 
-        script.log("DEBUG", "Found " + npcPositions.size() + " NPC positions on minimap");
-
-        // Try each NPC position
+        
         for (WorldPosition position : npcPositions) {
             LocalPosition localPosition = position.toLocalPosition(script);
             if (localPosition == null) {
                 continue;
             }
 
-            // Get tile cube for this NPC position
+            
             Polygon poly = script.getSceneProjector().getTileCube(
                 localPosition.getX(),
                 localPosition.getY(),
@@ -83,36 +91,28 @@ public class ThieveTask extends Task {
                 continue;
             }
 
-            // Resize the polygon for better clicking (smaller = more precise)
+            
             Polygon resized = poly.getResized(0.8);
             Polygon cubeResized = (resized != null) ? resized.convexHull() : null;
             if (cubeResized == null) {
                 cubeResized = poly;
             }
 
-            // FIRST: Check if this NPC position has cyan highlight pixels
+            
             List<Point> cyanPixels = script.getPixelAnalyzer().findPixelsOnGameScreen(cubeResized, CYAN_HIGHLIGHT);
 
             if (cyanPixels == null || cyanPixels.size() < 5) {
-                script.log("DEBUG", "NPC at " + position + " has no cyan highlight (" +
-                    (cyanPixels != null ? cyanPixels.size() : 0) + " pixels) - skipping");
-                continue;
+                continue; 
             }
 
-            script.log("INFO", "Found cyan highlighted NPC at " + position + " with " + cyanPixels.size() + " cyan pixels - attempting pickpocket");
-
-            // SECOND: Try to tap with "Pickpocket" action
-            // Since we already filtered for cyan highlight, we know it's the right NPC
+            
+            
             boolean tapped = script.getFinger().tapGameScreen(cubeResized, menuEntries -> {
-                script.log("DEBUG", "Menu has " + menuEntries.size() + " entries:");
-
                 for (int i = 0; i < menuEntries.size(); i++) {
                     String action = menuEntries.get(i).getAction();
                     String entityName = menuEntries.get(i).getEntityName();
 
-                    script.log("DEBUG", "  [" + i + "] action='" + action + "', entity='" + entityName + "'");
-
-                    // Check for "Pickpocket" action (case insensitive) on Master Farmer
+                    
                     if (action != null && entityName != null) {
                         String actionLower = action.toLowerCase();
                         String entityLower = entityName.toLowerCase();
@@ -132,22 +132,26 @@ public class ThieveTask extends Task {
                 script.log("INFO", "✓ Successfully initiated pickpocket on " + targetNPC);
                 pickpocketCount++;
 
-                // Wait a moment for chat message to appear
-                script.submitTask(() -> false, 300);
 
-                // Check chat for "You steal" messages and track success/failure
+                script.submitTask(() -> false, 600);
+
+
                 trackPickpocketResultFromChat();
 
-                // If using seed box, deposit any seeds we just picked up
+
                 if (useSeedBox) {
                     depositSeedsToSeedBox();
                 }
 
-                // Wait for animation/stun to finish
+
                 script.pollFramesUntil(() ->
                     !script.getPixelAnalyzer().isPlayerAnimating(0.3),
                     5000
                 );
+
+                if (processedMessages.size() > 200) {
+                    processedMessages.clear();
+                }
 
                 return true;
             } else {
@@ -160,43 +164,48 @@ public class ThieveTask extends Task {
     }
 
     private void trackPickpocketResultFromChat() {
-        // Read chat messages - looking for "You steal" (success) or "You fail" (failed)
-        com.osmb.api.utils.UIResultList<String> chatMessages = script.getWidgetManager().getChatbox().getText();
+        try {
+            com.osmb.api.utils.UIResultList<String> chatMessages = script.getWidgetManager().getChatbox().getText();
 
-        if (chatMessages == null || !chatMessages.isFound() || chatMessages.isEmpty()) {
-            script.log("DEBUG", "No chat messages found");
-            return;
-        }
+            if (chatMessages == null || !chatMessages.isFound() || chatMessages.isEmpty()) {
+                chatDetected = false;
+                return;
+            }
 
-        // Check recent chat messages
+            chatDetected = true;
+
+
         for (String message : chatMessages) {
             if (message == null) {
                 continue;
             }
 
-            script.log("DEBUG", "Chat message: " + message);
+            
+            if (processedMessages.contains(message)) {
+                continue;
+            }
 
             String lowerMsg = message.toLowerCase();
 
-            // Track successful pickpockets
+            
             if (lowerMsg.contains("you steal")) {
                 successfulPickpockets++;
-                script.log("DEBUG", "✓ Successful pickpocket! Total: " + successfulPickpockets);
+                processedMessages.add(message);
             }
-            // Track failed pickpockets
+            
             else if (lowerMsg.contains("you fail") || lowerMsg.contains("failed to pick")) {
                 failedPickpockets++;
-                script.log("DEBUG", "✗ Failed pickpocket! Total: " + failedPickpockets);
+                processedMessages.add(message);
             }
 
-            // Continue checking for seeds only if it's a successful "You steal" message
+            
             if (!lowerMsg.contains("you steal")) {
                 continue;
             }
 
-            // Parse the message - format is typically "You steal x [item name]."
+            
 
-            // Check each seed type
+            
             if (lowerMsg.contains("guam seed")) {
                 int amount = parseAmount(message);
                 guamSeedCount += amount;
@@ -255,11 +264,13 @@ public class ThieveTask extends Task {
                 script.log("INFO", "✓ Gained " + amount + "x Torstol seed!");
             }
         }
+        } catch (Exception e) {
+        }
     }
 
     private int parseAmount(String message) {
-        // Try to extract number from message like "You steal 3 Guam seeds."
-        // If no number found, assume 1
+        
+        
         try {
             String[] words = message.split("\\s+");
             for (int i = 0; i < words.length - 1; i++) {
@@ -271,35 +282,35 @@ public class ThieveTask extends Task {
                 }
             }
         } catch (Exception e) {
-            // If parsing fails, default to 1
+            
         }
         return 1;
     }
 
     private void depositSeedsToSeedBox() {
-        // All herb seed IDs that Master Farmer drops
+        
         java.util.Set<Integer> SEED_IDS = java.util.Set.of(
-            5291,  // Guam seed
-            5292,  // Marrentill seed
-            5293,  // Tarromin seed
-            5294,  // Harralander seed
-            5295,  // Ranarr seed
-            5296,  // Toadflax seed
-            5297,  // Irit seed
-            5298,  // Avantoe seed
-            5299,  // Kwuarm seed
-            5300,  // Snapdragon seed
-            5301,  // Cadantine seed
-            5302,  // Lantadyme seed
-            5303,  // Dwarf weed seed
-            5304   // Torstol seed
+            5291,  
+            5292,  
+            5293,  
+            5294,  
+            5295,  
+            5296,  
+            5297,  
+            5298,  
+            5299,  
+            5300,  
+            5301,  
+            5302,  
+            5303,  
+            5304   
         );
 
-        // Open inventory to see seeds
+        
         script.getWidgetManager().getTabManager().openTab(Tab.Type.INVENTORY);
         script.submitTask(() -> false, 200);
 
-        // Check if we have a seed box in inventory
+        
         com.osmb.api.item.ItemGroupResult seedBoxCheck =
             script.getWidgetManager().getInventory().search(java.util.Set.of(SEED_BOX_ID));
 
@@ -308,21 +319,21 @@ public class ThieveTask extends Task {
             return;
         }
 
-        // Check inventory for any seeds
+        
         com.osmb.api.item.ItemGroupResult seedCheck =
             script.getWidgetManager().getInventory().search(SEED_IDS);
 
         if (seedCheck == null || seedCheck.isEmpty()) {
-            return; // No seeds to deposit
+            return; 
         }
 
-        script.log("DEBUG", "Seeds found in inventory - depositing to seed box...");
+        
 
-        // Get the seed box item and interact with it (Fill action)
+        
         com.osmb.api.item.ItemSearchResult seedBox = seedBoxCheck.getItem(SEED_BOX_ID);
         if (seedBox != null && seedBox.interact("Fill")) {
             script.log("INFO", "✓ Deposited seeds into seed box!");
-            script.submitTask(() -> false, 500); // Wait for seeds to be deposited
+            script.submitTask(() -> false, 500); 
         } else {
             script.log("WARN", "Failed to interact with seed box");
         }

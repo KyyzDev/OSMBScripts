@@ -1,29 +1,19 @@
 package tasks;
 
 import com.osmb.api.item.ItemGroupResult;
-import com.osmb.api.item.ItemID;
 import com.osmb.api.script.Script;
+import com.osmb.api.ui.tabs.Tab;
 import utils.Task;
 
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
 import static main.KyyzMasterFarmer.*;
 
 public class ManageLootTask extends Task {
 
-    // Common food IDs (same as EatTask)
-    private static final Set<Integer> FOOD_IDS = Set.of(
-        379,  // Lobster
-        385,  // Shark
-        7946, // Monkfish
-        329,  // Salmon
-        373,  // Swordfish
-        2142, // Cooked karambwan
-        361,  // Tuna
-        333,  // Trout
-        315   // Shrimp
+    private static final Set<Integer> SEED_IDS = Set.of(
+        5291, 5292, 5293, 5294, 5295, 5296, 5297,
+        5298, 5299, 5300, 5301, 5302, 5303, 5304
     );
 
     public ManageLootTask(Script script) {
@@ -32,80 +22,40 @@ public class ManageLootTask extends Task {
 
     @Override
     public boolean activate() {
-        if (!setupDone) {
+        if (!setupDone || !"DROP_ALL".equals(lootMode)) {
             return false;
         }
 
-        ItemGroupResult inv = script.getWidgetManager().getInventory().search(Collections.emptySet());
-        if (inv == null) {
+        ItemGroupResult inv = script.getWidgetManager().getInventory().search(java.util.Collections.emptySet());
+        if (inv == null || !inv.isFull()) {
             return false;
         }
 
-        return inv.getOccupiedSlotCount() >= 26;
+        return true;
     }
 
     @Override
     public boolean execute() {
-        task = "Managing loot";
+        task = "Dropping loot";
 
-        ItemGroupResult inv = script.getWidgetManager().getInventory().search(Collections.emptySet());
+        script.getWidgetManager().getTabManager().openTab(Tab.Type.INVENTORY);
+        script.submitTask(() -> false, 300);
+
+        ItemGroupResult inv = script.getWidgetManager().getInventory().search(java.util.Collections.emptySet());
         if (inv == null) {
             return false;
         }
 
-        if (lootMode.equals("KEEP_COINS")) {
-            return dropExceptCoins(inv);
-        } else {
-            return dropAllLoot(inv);
-        }
-    }
-
-    private boolean dropAllLoot(ItemGroupResult inv) {
-        script.log("DEBUG", "Dropping all loot...");
-
-        for (int slot = 0; slot < 28; slot++) {
-            if (inv.isSlotOccupied(slot)) {
-                boolean isFood = false;
-                for (var item : inv.getRecognisedItems()) {
-                    if (item.getSlot() == slot && FOOD_IDS.contains(item.getId())) {
-                        isFood = true;
-                        break;
-                    }
-                }
-
-                if (!isFood) {
-                    script.getWidgetManager().getInventory().dropItem(slot, 1, true);
-                    script.sleep(script.random(50, 150));
-                }
-            }
+        Set<Integer> keepItems = new java.util.HashSet<>(SEED_IDS);
+        keepItems.add(foodItemId);
+        keepItems.add(995);
+        if (useSeedBox) {
+            keepItems.add(SEED_BOX_ID);
         }
 
-        return true;
-    }
+        script.getWidgetManager().getInventory().dropItems(keepItems);
+        script.submitTask(() -> false, 600);
 
-    private boolean dropExceptCoins(ItemGroupResult inv) {
-        script.log("DEBUG", "Dropping loot, keeping coins...");
-
-        Set<Integer> keepIds = new HashSet<>(FOOD_IDS);
-        keepIds.add(ItemID.COINS_995);
-
-        for (int slot = 0; slot < 28; slot++) {
-            if (inv.isSlotOccupied(slot)) {
-                boolean shouldKeep = false;
-                for (var item : inv.getRecognisedItems()) {
-                    if (item.getSlot() == slot && keepIds.contains(item.getId())) {
-                        shouldKeep = true;
-                        break;
-                    }
-                }
-
-                if (!shouldKeep) {
-                    script.getWidgetManager().getInventory().dropItem(slot, 1, true);
-                    script.sleep(script.random(50, 150));
-                }
-            }
-        }
-
-        return true;
+        return false;
     }
 }
