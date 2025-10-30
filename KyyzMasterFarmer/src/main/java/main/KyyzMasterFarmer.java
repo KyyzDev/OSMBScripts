@@ -15,11 +15,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 @ScriptDefinition(
         name = "Kyyz Master Farmer",
@@ -79,9 +78,9 @@ public class KyyzMasterFarmer extends Script implements WebhookSender {
     private static String webhookUrl = "";
     public static int webhookIntervalMinutes = 5;
     public static long lastWebhookSent = 0;
-    private final AtomicBoolean webhookInFlight = new AtomicBoolean(false);
-    private volatile long nextWebhookEarliestMs = 0L;
-    private final AtomicReference<Image> lastCanvasFrame = new AtomicReference<>();
+    private boolean webhookCurrentlySending = false;
+    private long webhookCooldownUntil = 0L;
+    private Image savedScreenshot = null;
     private static String user = "";
 
     private List<Task> tasks;
@@ -160,6 +159,8 @@ public class KyyzMasterFarmer extends Script implements WebhookSender {
         log("INFO", "  Loot: " + lootMode);
         log("INFO", "  Seed Box: " + (useSeedBox ? "Enabled" : "Disabled"));
         log("INFO", "===========================================");
+
+        checkForUpdates();
 
         tasks = Arrays.asList(
                 new Setup(this),
@@ -325,7 +326,7 @@ public class KyyzMasterFarmer extends Script implements WebhookSender {
         if (dwarfWeedSeedCount > 0) { curY += lineGap; drawOSRSStatLine(c, innerX, innerWidth, paddingX, curY, "Dwarf weed seed", String.valueOf(dwarfWeedSeedCount), labelColor, valueGreen); }
 
         try {
-            lastCanvasFrame.set(c.toImageCopy());
+            savedScreenshot = c.toImageCopy();
         } catch (Exception ignored) {}
     }
 
@@ -358,100 +359,91 @@ public class KyyzMasterFarmer extends Script implements WebhookSender {
         }
     }
 
-    private void sendWebhookInternal() {
-        ByteArrayOutputStream imageStream = null;
+    private void postDiscordUpdate() {
+        if (savedScreenshot == null) return;
+
         try {
-            Image canvasSnapshot = lastCanvasFrame.get();
-            if (canvasSnapshot == null) {
-                return;
-            }
+            ByteArrayOutputStream imgBytes = new ByteArrayOutputStream();
+            ImageIO.write(savedScreenshot.toBufferedImage(), "png", imgBytes);
 
-            imageStream = new ByteArrayOutputStream();
-            ImageIO.write(canvasSnapshot.toBufferedImage(), "png", imageStream);
+            String playerName = webhookShowUser && user != null && !user.isEmpty() ? user : "Player";
+            String timeRunning = formatRuntime(System.currentTimeMillis() - startTime);
 
-            String displayName = webhookShowUser && user != null && !user.isEmpty() ? user : "Player";
-            String runtimeDisplay = formatRuntime(System.currentTimeMillis() - startTime);
+            long nextPostTime = System.currentTimeMillis() + (webhookIntervalMinutes * 60000);
+            String nextTimeStr = ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(nextPostTime),
+                                ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"));
 
-            ZonedDateTime nextUpdate = ZonedDateTime.now().plusMinutes(webhookIntervalMinutes);
-            String nextTime = nextUpdate.format(DateTimeFormatter.ofPattern("HH:mm"));
+            StringBuilder message = new StringBuilder();
+            message.append("{\"embeds\":[{");
+            message.append("\"title\":\"Kyyz Master Farmer - ").append(playerName).append("\",");
+            message.append("\"description\":\"Runtime: **").append(timeRunning).append("**\\n");
+            message.append("Successful: ").append(successfulPickpockets).append(" | Failed: ").append(failedPickpockets).append("\\n");
+            message.append("GP Earned: ").append(formatGp(totalGpValue)).append("\\n\\n");
+            message.append("Post your proggy: https://discord.com/channels/736938454478356570/789791439487500299\",");
+            message.append("\"color\":5635925,");
+            message.append("\"image\":{\"url\":\"attachment://stats.png\"},");
+            message.append("\"footer\":{\"text\":\"Next update: ").append(nextTimeStr).append("\"}");
+            message.append("}]}");
 
-            String embedJson = String.format(
-                "{\"embeds\":[{\"title\":\"Kyyz Master Farmer - %s\"," +
-                "\"description\":\"Runtime: **%s**\\nSuccessful: %d | Failed: %d\\nGP Earned: %s\\n\\n" +
-                "Post your proggy: https://discord.com/channels/736938454478356570/789791439487500299\"," +
-                "\"color\":5635925," +
-                "\"image\":{\"url\":\"attachment://progress.png\"}," +
-                "\"footer\":{\"text\":\"Next update: %s\"}}]}",
-                displayName, runtimeDisplay, successfulPickpockets, failedPickpockets,
-                formatGp(totalGpValue), nextTime
-            );
+            String separator = "----KyyzBoundary" + System.currentTimeMillis();
+            HttpURLConnection conn = (HttpURLConnection) new URL(webhookUrl).openConnection();
+            conn.setRequestMethod("POST");
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + separator);
 
-            String multipartBoundary = "Boundary" + System.nanoTime();
-            HttpURLConnection connection = (HttpURLConnection) new URL(webhookUrl).openConnection();
-            connection.setRequestMethod("POST");
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + multipartBoundary);
+            OutputStream out = conn.getOutputStream();
 
-            try (OutputStream output = connection.getOutputStream()) {
-                writeMultipartField(output, multipartBoundary, "payload_json", embedJson);
-                writeMultipartFile(output, multipartBoundary, "progress.png", imageStream.toByteArray());
-                output.write(("--" + multipartBoundary + "--\r\n").getBytes());
-            }
+            out.write(("--" + separator + "\r\n").getBytes());
+            out.write("Content-Disposition: form-data; name=\"payload_json\"\r\n\r\n".getBytes());
+            out.write(message.toString().getBytes(StandardCharsets.UTF_8));
+            out.write("\r\n".getBytes());
 
-            int responseCode = connection.getResponseCode();
-            if (responseCode == 200 || responseCode == 204) {
+            out.write(("--" + separator + "\r\n").getBytes());
+            out.write("Content-Disposition: form-data; name=\"file\"; filename=\"stats.png\"\r\n".getBytes());
+            out.write("Content-Type: image/png\r\n\r\n".getBytes());
+            out.write(imgBytes.toByteArray());
+            out.write("\r\n".getBytes());
+
+            out.write(("--" + separator + "--\r\n").getBytes());
+            out.flush();
+            out.close();
+
+            int response = conn.getResponseCode();
+            if (response == 200 || response == 204) {
                 lastWebhookSent = System.currentTimeMillis();
-            } else if (responseCode == 429) {
-                String retryAfter = connection.getHeaderField("Retry-After");
-                long waitTime = 30000L;
-                if (retryAfter != null) {
+                webhookCurrentlySending = false;
+            } else if (response == 429) {
+                String retryHeader = conn.getHeaderField("Retry-After");
+                if (retryHeader != null) {
                     try {
-                        waitTime = (long)(Double.parseDouble(retryAfter) * 1000);
-                    } catch (NumberFormatException e) {}
+                        long retrySeconds = Long.parseLong(retryHeader);
+                        webhookCooldownUntil = System.currentTimeMillis() + (retrySeconds * 1000);
+                    } catch (Exception e) {
+                        webhookCooldownUntil = System.currentTimeMillis() + 30000;
+                    }
                 }
-                nextWebhookEarliestMs = System.currentTimeMillis() + waitTime;
             }
 
+            imgBytes.close();
         } catch (Exception e) {
-        } finally {
-            if (imageStream != null) {
-                try { imageStream.close(); } catch (IOException e) {}
-            }
-            webhookInFlight.set(false);
+            webhookCurrentlySending = false;
         }
     }
 
-    private void writeMultipartField(OutputStream out, String boundary, String name, String value) throws IOException {
-        out.write(("--" + boundary + "\r\n").getBytes());
-        out.write(("Content-Disposition: form-data; name=\"" + name + "\"\r\n\r\n").getBytes());
-        out.write(value.getBytes(StandardCharsets.UTF_8));
-        out.write("\r\n".getBytes());
-    }
-
-    private void writeMultipartFile(OutputStream out, String boundary, String filename, byte[] data) throws IOException {
-        out.write(("--" + boundary + "\r\n").getBytes());
-        out.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n").getBytes());
-        out.write("Content-Type: image/png\r\n\r\n".getBytes());
-        out.write(data);
-        out.write("\r\n".getBytes());
-    }
-
     public void queueSendWebhook() {
-        if (!webhookEnabled) return;
+        if (!webhookEnabled || webhookUrl == null || webhookUrl.isEmpty()) return;
 
-        long now = System.currentTimeMillis();
-        if (now < nextWebhookEarliestMs) return;
-        if (now - lastWebhookSent < webhookIntervalMinutes * 60_000L) return;
+        long currentTime = System.currentTimeMillis();
 
-        if (!webhookInFlight.compareAndSet(false, true)) return;
+        if (webhookCurrentlySending) return;
+        if (currentTime < webhookCooldownUntil) return;
+        if (currentTime - lastWebhookSent < webhookIntervalMinutes * 60000) return;
 
-        sendWebhookAsync();
-    }
+        webhookCurrentlySending = true;
 
-    public void sendWebhookAsync() {
-        Thread t = new Thread(this::sendWebhookInternal, "WebhookSender");
-        t.setDaemon(true);
-        t.start();
+        Thread webhookThread = new Thread(() -> postDiscordUpdate());
+        webhookThread.setDaemon(true);
+        webhookThread.start();
     }
 
     private void updateSeedPrices() {
@@ -523,5 +515,66 @@ public class KyyzMasterFarmer extends Script implements WebhookSender {
         totalGpValue += lantadymeSeedCount * seedPrices.getOrDefault(5302, 0);
         totalGpValue += dwarfWeedSeedCount * seedPrices.getOrDefault(5303, 0);
         totalGpValue += torstolSeedCount * seedPrices.getOrDefault(5304, 0);
+    }
+
+    private void checkForUpdates() {
+        String latest = getLatestVersion("https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO/main/KyyzMasterFarmer/src/main/java/main/KyyzMasterFarmer.java");
+        if (latest == null) {
+            log("VERSION", "Could not fetch latest version info.");
+            return;
+        }
+        if (compareVersions(scriptVersion, latest) < 0) {
+            log("VERSION", "New version v" + latest + " found! Updating...");
+            try {
+                File dir = new File(System.getProperty("user.home") + File.separator + ".osmb" + File.separator + "Scripts");
+                File[] old = dir.listFiles((d, n) -> n.equals("KyyzMasterFarmer.jar") || n.startsWith("KyyzMasterFarmer-"));
+                if (old != null) for (File f : old) if (f.delete()) log("UPDATE", "Deleted old: " + f.getName());
+                File out = new File(dir, "KyyzMasterFarmer-" + latest + ".jar");
+                URL url = new URL("https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO/main/KyyzMasterFarmer/jar/KyyzMasterFarmer.jar");
+                try (InputStream in = url.openStream(); FileOutputStream fos = new FileOutputStream(out)) {
+                    byte[] buf = new byte[4096];
+                    int n;
+                    while ((n = in.read(buf)) != -1) fos.write(buf, 0, n);
+                }
+                log("UPDATE", "Downloaded: " + out.getName());
+                stop();
+            } catch (Exception e) {
+                log("UPDATE", "Error downloading new version: " + e.getMessage());
+            }
+        } else {
+            log("VERSION", "You are running the latest version (v" + scriptVersion + ").");
+        }
+    }
+
+    private String getLatestVersion(String urlString) {
+        try {
+            HttpURLConnection c = (HttpURLConnection) new URL(urlString).openConnection();
+            c.setRequestMethod("GET");
+            c.setConnectTimeout(3000);
+            c.setReadTimeout(3000);
+            if (c.getResponseCode() != 200) return null;
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream()))) {
+                String l;
+                while ((l = r.readLine()) != null) {
+                    if (l.trim().startsWith("version")) {
+                        return l.split("=")[1].replace(",", "").trim();
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    public static int compareVersions(String v1, String v2) {
+        String[] a = v1.split("\\.");
+        String[] b = v2.split("\\.");
+        int len = Math.max(a.length, b.length);
+        for (int i = 0; i < len; i++) {
+            int n1 = i < a.length ? Integer.parseInt(a[i]) : 0;
+            int n2 = i < b.length ? Integer.parseInt(b[i]) : 0;
+            if (n1 != n2) return Integer.compare(n1, n2);
+        }
+        return 0;
     }
 }
