@@ -17,7 +17,7 @@ dependencies {
 }
 
 jar {
-    archiveFileName = 'KyyzMasterFarmer.jar'
+    archiveFileName = 'KyyzDartMaker.jar'
     destinationDirectory = file('jar/')
 
     manifest {
