@@ -1,0 +1,184 @@
+/* OSRS-themed Modern UI Stylesheet */
+
+/* Global settings - everything square! */
+* {
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+/* Combo Box / Dropdown */
+.combo-box {
+    -fx-background-color: #1A1510;
+    -fx-border-color: #5A4A3A;
+    -fx-border-width: 1;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+}
+
+.combo-box:focused {
+    -fx-border-color: #FFD700;
+    -fx-border-width: 1;
+}
+
+.combo-box .list-cell {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
+    -fx-text-fill: #FFFFFF;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: #1A1510;
+    -fx-border-color: #5A4A3A;
+    -fx-border-width: 2;
+    -fx-background-radius: 0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 8, 0, 0, 2);
+}
+
+.combo-box-popup .list-view .list-cell {
+    -fx-background-radius: 0;
+    -fx-background-color: #1A1510;
+    -fx-text-fill: #FFFFFF;
+    -fx-padding: 8 10 8 10;
+}
+
+.combo-box-popup .list-view .list-cell:hover {
+    -fx-background-color: #3A2A1A;
+    -fx-text-fill: #FFD700;
+}
+
+.combo-box-popup .list-view .list-cell:selected {
+    -fx-background-color: #5A4A3A;
+    -fx-text-fill: #FFD700;
+}
+
+.combo-box .arrow-button {
+    -fx-background-color: #2E2620;
+    -fx-border-color: #5A4A3A;
+    -fx-background-radius: 0;
+    -fx-padding: 0 8 0 8;
+}
+
+.combo-box .arrow {
+    -fx-background-color: #FFD700;
+    -fx-shape: "M 0 0 L 4 4 L 8 0 Z";
+    -fx-scale-shape: true;
+    -fx-padding: 4;
+}
+
+/* Sliders - Square rectangular OSRS style! */
+.slider {
+    -fx-background-color: transparent;
+}
+
+.slider .track {
+    -fx-background-color: #1A1510;
+    -fx-border-color: #5A4A3A;
+    -fx-border-width: 1;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-background-insets: 0;
+    -fx-pref-height: 6;
+}
+
+.slider .thumb {
+    -fx-background-color: linear-gradient(to bottom, #FFE55C 0%, #FFD700 50%, #D4AF37 100%);
+    -fx-border-color: #2E2620;
+    -fx-border-width: 2;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-pref-width: 18;
+    -fx-pref-height: 18;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 3, 0, 0, 1);
+    -fx-shape: "M 0 0 L 18 0 L 18 18 L 0 18 Z";
+}
+
+.slider .thumb:hover {
+    -fx-background-color: linear-gradient(to bottom, #FFB347 0%, #FFA500 50%, #FF8C00 100%);
+    -fx-cursor: hand;
+}
+
+.slider .thumb:pressed {
+    -fx-background-color: linear-gradient(to bottom, #D4AF37 0%, #B8960F 50%, #9A7D0A 100%);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 1, 0, 0, 0);
+}
+
+.slider .axis {
+    -fx-tick-label-fill: #999999;
+    -fx-tick-mark-fill: #5A4A3A;
+}
+
+/* Radio Buttons - Square boxes! */
+.radio-button {
+    -fx-cursor: hand;
+}
+
+.radio-button .radio {
+    -fx-background-color: #1A1510;
+    -fx-border-color: #5A4A3A;
+    -fx-border-width: 2;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-padding: 7;
+    -fx-shape: "M 0 0 L 14 0 L 14 14 L 0 14 Z";
+}
+
+.radio-button:hover .radio {
+    -fx-border-color: #FFD700;
+    -fx-border-width: 2;
+}
+
+.radio-button:selected .radio {
+    -fx-background-color: #FFD700;
+    -fx-border-color: #2E2620;
+    -fx-border-width: 2;
+}
+
+.radio-button .dot {
+    -fx-background-color: #2E2620;
+    -fx-background-radius: 0;
+    -fx-padding: 4;
+    -fx-shape: "M 0 0 L 6 0 L 6 6 L 0 6 Z";
+}
+
+/* Checkboxes - Square boxes with square checkmark! */
+.check-box {
+    -fx-cursor: hand;
+}
+
+.check-box .box {
+    -fx-background-color: #1A1510;
+    -fx-border-color: #5A4A3A;
+    -fx-border-width: 2;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-pref-width: 16;
+    -fx-pref-height: 16;
+    -fx-shape: "M 0 0 L 16 0 L 16 16 L 0 16 Z";
+}
+
+.check-box:hover .box {
+    -fx-border-color: #FFD700;
+    -fx-border-width: 2;
+}
+
+.check-box:selected .box {
+    -fx-background-color: #FFD700;
+    -fx-border-color: #2E2620;
+    -fx-border-width: 2;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: #2E2620;
+    -fx-shape: "M 2 2 L 10 2 L 10 10 L 2 10 Z";
+    -fx-scale-shape: false;
+    -fx-padding: 0;
+}
+
+/* Separator */
+.separator .line {
+    -fx-background-color: #5A4A3A;
+    -fx-border-width: 0;
+    -fx-pref-height: 1;
+}
