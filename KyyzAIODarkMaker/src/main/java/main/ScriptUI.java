@@ -290,9 +290,7 @@ public class ScriptUI {
         try {
             String css = getClass().getResource("/style.css").toExternalForm();
             scene.getStylesheets().add(css);
-            script.log("INFO", "Loaded custom CSS stylesheet");
         } catch (Exception e) {
-            script.log("WARN", "Could not load CSS stylesheet: " + e.getMessage());
         }
 
         return scene;

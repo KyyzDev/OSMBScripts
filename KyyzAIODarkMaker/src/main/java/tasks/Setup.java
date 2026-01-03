@@ -24,53 +24,33 @@ public class Setup extends Task {
     public boolean execute() {
         task = "Setup";
 
-        script.log("INFO", "Running initial setup...");
-
+        script.getWidgetManager().getInventory().unSelectItemIfSelected();
         script.getWidgetManager().getTabManager().openTab(Tab.Type.INVENTORY);
-        script.submitTask(() -> false, 300);
+
+        boolean inventoryVisible = script.submitHumanTask(() -> {
+            return script.getWidgetManager().getInventory().search(Set.of(primaryIngredientID, selectedDartTipID)) != null;
+        }, 3000);
+
+        if (!inventoryVisible) {
+            return true;
+        }
 
         ItemGroupResult inv = script.getWidgetManager().getInventory()
                 .search(Set.of(primaryIngredientID, selectedDartTipID));
 
         if (inv == null) {
-            script.log("WARN", "Cannot see inventory!");
+            return true;
+        }
+
+        if (!inv.contains(primaryIngredientID) || !inv.contains(selectedDartTipID)) {
             script.stop();
             return false;
         }
-
-        if (!inv.contains(primaryIngredientID)) {
-            String itemName = script.getItemManager().getItemName(primaryIngredientID);
-            script.log("ERROR", "Missing required item: " + itemName);
-            script.log("ERROR", "Please ensure you have both dart tips and " +
-                    (primaryIngredientID == 314 ? "feathers" : "headless atlatl darts") +
-                    " in your inventory!");
-            script.stop();
-            return false;
-        }
-
-        if (!inv.contains(selectedDartTipID)) {
-            String itemName = script.getItemManager().getItemName(selectedDartTipID);
-            script.log("ERROR", "Missing required item: " + itemName);
-            script.log("ERROR", "Please ensure you have both dart tips and " +
-                    (primaryIngredientID == 314 ? "feathers" : "headless atlatl darts") +
-                    " in your inventory!");
-            script.stop();
-            return false;
-        }
-
-        int tipCount = inv.getAmount(selectedDartTipID);
-        int primaryCount = inv.getAmount(primaryIngredientID);
-
-        script.log("INFO", "Found " + tipCount + "x " + script.getItemManager().getItemName(selectedDartTipID));
-        script.log("INFO", "Found " + primaryCount + "x " + script.getItemManager().getItemName(primaryIngredientID));
-
-        int maxDarts = Math.min(tipCount, primaryCount) * 10;
-        script.log("INFO", "Can make approximately " + maxDarts + " darts");
 
         setupDone = true;
         startTime = System.currentTimeMillis();
-        script.log("INFO", "Setup complete! Starting dart making...");
+        dartsMade = 0;
 
-        return false;
+        return true;
     }
 }

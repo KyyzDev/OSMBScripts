@@ -14,13 +14,13 @@ import java.util.List;
 
 @ScriptDefinition(
         name = "Kyyz Dart Maker",
-        description = "Fletch darts efficiently with proper async handling. Supports all dart types.",
+        description = "Fletch darts using proper OSMB dialogue handling. Supports all dart types.",
         skillCategory = SkillCategory.FLETCHING,
-        version = 1.0,
+        version = 1.1,
         author = "Kyyz"
 )
 public class KyyzDartMaker extends Script {
-    public static final String scriptVersion = "1.0";
+    public static final String scriptVersion = "1.1";
     public static boolean setupDone = false;
     public static String task = "Initialize";
     public static int dartsMade = 0;
@@ -34,8 +34,6 @@ public class KyyzDartMaker extends Script {
     public static final int ATLATL_DART_TIP = 30998;
     public static final int HEADLESS_ATLATL_DART = 30996;
 
-    public static int tapSpeed = 50;
-
     private List<Task> tasks;
 
     private static final Font FONT_TITLE = new Font("Small Fonts", Font.BOLD, 14);
@@ -48,31 +46,22 @@ public class KyyzDartMaker extends Script {
 
     @Override
     public void onStart() {
-        log("INFO", "Starting Kyyz Dart Maker v" + scriptVersion);
+        setupDone = false;
+        dartsMade = 0;
+        task = "Initialize";
+        startTime = System.currentTimeMillis();
 
         ScriptUI ui = new ScriptUI(this);
         javafx.scene.Scene scene = ui.buildScene(this);
         getStageController().show(scene, "Kyyz Dart Maker", true);
 
         selectedDartTipID = ui.getSelectedDartTipID();
-        tapSpeed = ui.getTapSpeed();
-
         configureDartType(selectedDartTipID);
-
-        log("INFO", "===========================================");
-        log("INFO", "  Dart Type: " + getItemManager().getItemName(resultingDartID));
-        log("INFO", "  Tip: " + getItemManager().getItemName(selectedDartTipID));
-        log("INFO", "  Primary: " + getItemManager().getItemName(primaryIngredientID));
-        log("INFO", "  XP/dart: " + xpPerDart);
-        log("INFO", "  Speed: " + tapSpeed + "%");
-        log("INFO", "===========================================");
 
         tasks = Arrays.asList(
                 new Setup(this),
                 new FletchTask(this)
         );
-
-        log("INFO", "Script initialized!");
     }
 
     @Override
