@@ -23,14 +23,14 @@ public class WalkTask extends Task {
             return false;
         }
 
-        double distance = currentPos.distanceTo(DRAYNOR_FARMER_LOCATION);
+        double distance = currentPos.distanceTo(farmerLocation);
 
         return distance > 10;
     }
 
     @Override
     public boolean execute() {
-        task = "Walking to Draynor";
+        task = "Walking to " + selectedLocation.getDisplayName();
 
         WorldPosition currentPos = script.getWorldPosition();
         if (currentPos == null) {
@@ -38,11 +38,11 @@ public class WalkTask extends Task {
             return false;
         }
 
-        script.getWalker().walkTo(DRAYNOR_FARMER_LOCATION);
+        script.getWalker().walkTo(farmerLocation);
 
         script.submitHumanTask(() -> {
             WorldPosition current = script.getWorldPosition();
-            return current != null && current.distanceTo(DRAYNOR_FARMER_LOCATION) < 10;
+            return current != null && current.distanceTo(farmerLocation) < 10;
         }, script.random(30000, 35000));
 
         return false;

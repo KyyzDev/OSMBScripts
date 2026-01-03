@@ -22,6 +22,7 @@ public class ScriptUI {
     private static final String PREF_WEBHOOK_INCLUDE_USER = "kyyz_masterfarmer_webhook_include_user";
 
     private final Script script;
+    private ComboBox<Location> locationComboBox;
     private Slider hpThresholdSlider;
     private Slider foodAmountSlider;
     private ComboBox<LootMode> lootModeComboBox;
@@ -37,7 +38,8 @@ public class ScriptUI {
 
     public enum LootMode {
         DROP_ALL("Drop All"),
-        BANK_WHEN_FULL("Bank When Full");
+        BANK_WHEN_FULL("Bank When Full"),
+        SEED_VAULT("Seed Vault (Farming Guild)");
 
         private final String displayName;
 
@@ -49,6 +51,37 @@ public class ScriptUI {
         public String toString() {
             return displayName;
         }
+    }
+
+    public enum Location {
+        DRAYNOR("Draynor Village", 3079, 3250, 0, 3081, 3249, 12338);
+        // FARMING_GUILD("Farming Guild", 1260, 3726, 0, 1262, 3725, 4922); // TODO: Re-enable when ready
+
+        private final String displayName;
+        private final int farmerX, farmerY, farmerZ;
+        private final int centerX, centerY;
+        private final int regionId;
+
+        Location(String displayName, int farmerX, int farmerY, int farmerZ, int centerX, int centerY, int regionId) {
+            this.displayName = displayName;
+            this.farmerX = farmerX;
+            this.farmerY = farmerY;
+            this.farmerZ = farmerZ;
+            this.centerX = centerX;
+            this.centerY = centerY;
+            this.regionId = regionId;
+        }
+
+        public String getDisplayName() { return displayName; }
+        public int getFarmerX() { return farmerX; }
+        public int getFarmerY() { return farmerY; }
+        public int getFarmerZ() { return farmerZ; }
+        public int getCenterX() { return centerX; }
+        public int getCenterY() { return centerY; }
+        public int getRegionId() { return regionId; }
+
+        @Override
+        public String toString() { return displayName; }
     }
 
     public enum FoodType {
@@ -129,12 +162,77 @@ public class ScriptUI {
             "-fx-border-radius: 0;"
         );
 
-        
+        Label locationTitle = new Label("Location");
+        locationTitle.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        locationTitle.setStyle("-fx-text-fill: #FF9800; -fx-padding: 0 0 5 0;");
+
+        locationComboBox = new ComboBox<>();
+        locationComboBox.getItems().addAll(Location.values());
+        locationComboBox.setValue(Location.DRAYNOR);
+        locationComboBox.setMaxWidth(Double.MAX_VALUE);
+        locationComboBox.setStyle(
+            "-fx-font-size: 11px; " +
+            "-fx-background-color: #1A1510; " +
+            "-fx-border-color: #5A4A3A; " +
+            "-fx-border-width: 1; " +
+            "-fx-background-radius: 0; " +
+            "-fx-border-radius: 0;"
+        );
+
+        locationComboBox.setCellFactory(lv -> new ListCell<Location>() {
+            @Override
+            protected void updateItem(Location loc, boolean empty) {
+                super.updateItem(loc, empty);
+                if (empty || loc == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(loc.toString());
+                    setStyle(
+                        "-fx-background-color: #1A1510; " +
+                        "-fx-text-fill: #FFFFFF; " +
+                        "-fx-padding: 8 10 8 10; " +
+                        "-fx-font-size: 12px;"
+                    );
+                }
+            }
+
+            @Override
+            public void updateSelected(boolean selected) {
+                super.updateSelected(selected);
+                if (selected && !isEmpty()) {
+                    setStyle(
+                        "-fx-background-color: #5A4A3A; " +
+                        "-fx-text-fill: #FFD700; " +
+                        "-fx-padding: 8 10 8 10; " +
+                        "-fx-font-size: 12px;"
+                    );
+                }
+            }
+        });
+
+        locationComboBox.setButtonCell(new ListCell<Location>() {
+            @Override
+            protected void updateItem(Location loc, boolean empty) {
+                super.updateItem(loc, empty);
+                if (empty || loc == null) {
+                    setText(null);
+                } else {
+                    setText(loc.toString());
+                    setStyle(
+                        "-fx-background-color: transparent; " +
+                        "-fx-text-fill: #FFFFFF; " +
+                        "-fx-padding: 5 8 5 8; " +
+                        "-fx-font-size: 12px;"
+                    );
+                }
+            }
+        });
+
         Label foodTitle = new Label("Food Settings");
         foodTitle.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-        foodTitle.setStyle("-fx-text-fill: #FF9800; -fx-padding: 0 0 5 0;"); 
+        foodTitle.setStyle("-fx-text-fill: #FF9800; -fx-padding: 10 0 5 0;");
 
-        
         Label foodTypeLabel = new Label("Food type:");
         foodTypeLabel.setStyle("-fx-text-fill: #FFFFFF; -fx-font-size: 11px;");
 
@@ -503,6 +601,8 @@ public class ScriptUI {
         });
 
         settingsBox.getChildren().addAll(
+            locationTitle,
+            locationComboBox,
             foodTitle,
             foodTypeLabel,
             foodComboBox,
@@ -643,5 +743,9 @@ public class ScriptUI {
 
     public boolean isUsernameIncluded() {
         return includeUsernameCheckBox != null && includeUsernameCheckBox.isSelected();
+    }
+
+    public Location getLocation() {
+        return locationComboBox != null ? locationComboBox.getValue() : Location.DRAYNOR;
     }
 }

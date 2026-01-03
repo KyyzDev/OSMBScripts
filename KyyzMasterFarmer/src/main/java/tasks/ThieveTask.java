@@ -26,8 +26,7 @@ public class ThieveTask extends Task {
 
     private java.util.Set<String> processedMessages = new java.util.HashSet<>();
     private int consecutiveFailures = 0;
-    private static final int MAX_FAILURES_BEFORE_REPOSITION = 4;
-    private static final WorldPosition CENTER_TILE = new WorldPosition(3081, 3249, 0);
+    private static final int MAX_FAILURES_BEFORE_REPOSITION = 12;
 
     public ThieveTask(Script script) {
         super(script);
@@ -88,7 +87,7 @@ public class ThieveTask extends Task {
 
             List<Point> cyanPixels = script.getPixelAnalyzer().findPixelsOnGameScreen(cubeResized, CYAN_HIGHLIGHT);
 
-            if (cyanPixels == null || cyanPixels.size() < 5) {
+            if (cyanPixels == null || cyanPixels.size() < 3) {
                 continue;
             }
 
@@ -128,8 +127,10 @@ public class ThieveTask extends Task {
                 lastSuccessfulAction = System.currentTimeMillis();
                 hasAttemptedPickpocket = true;
 
-                script.submitHumanTask(() -> false, script.random(400, 800));
+                // Quick wait for pickpocket to register
+                script.submitTask(() -> false, script.random(80, 150));
 
+                // Track chat for XP counting
                 trackPickpocketResultFromChat();
 
                 if (useSeedBox) {
@@ -147,9 +148,10 @@ public class ThieveTask extends Task {
                     }
                 }
 
+                // Brief wait for animation - reduced from 5000ms
                 script.pollFramesUntil(() ->
                     !script.getPixelAnalyzer().isPlayerAnimating(0.3),
-                    5000
+                    1500
                 );
 
                 if (processedMessages.size() > 200) {
@@ -166,11 +168,11 @@ public class ThieveTask extends Task {
             consecutiveFailures = 0;
 
             WorldPosition currentPos = script.getWorldPosition();
-            if (currentPos != null && currentPos.distanceTo(CENTER_TILE) > 2) {
-                script.getWalker().walkTo(CENTER_TILE);
+            if (currentPos != null && currentPos.distanceTo(centerTile) > 2) {
+                script.getWalker().walkTo(centerTile);
                 script.submitHumanTask(() -> {
                     WorldPosition current = script.getWorldPosition();
-                    return current != null && current.distanceTo(CENTER_TILE) < 2;
+                    return current != null && current.distanceTo(centerTile) < 2;
                 }, script.random(3000, 5000));
             }
         }
@@ -180,18 +182,7 @@ public class ThieveTask extends Task {
 
     private void trackPickpocketResultFromChat() {
         try {
-            if (!script.getWidgetManager().getChatbox().isOpen()) {
-                script.getWidgetManager().getChatbox().open();
-                script.submitTask(() -> false, 300);
-            }
-
-            com.osmb.api.ui.chatbox.ChatboxFilterTab activeTab = script.getWidgetManager().getChatbox().getActiveFilterTab();
-            if (activeTab != null && activeTab != com.osmb.api.ui.chatbox.ChatboxFilterTab.ALL
-                && activeTab != com.osmb.api.ui.chatbox.ChatboxFilterTab.GAME) {
-                script.getWidgetManager().getChatbox().openFilterTab(com.osmb.api.ui.chatbox.ChatboxFilterTab.GAME);
-                script.submitTask(() -> false, 300);
-            }
-
+            // Just read chat without switching tabs - faster
             com.osmb.api.utils.UIResultList<String> chatMessages = script.getWidgetManager().getChatbox().getText();
 
             if (chatMessages == null || !chatMessages.isFound() || chatMessages.isEmpty()) {

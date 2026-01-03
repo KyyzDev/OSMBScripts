@@ -23,34 +23,35 @@ public class BankTask extends Task {
         super(script);
     }
 
+    private boolean isFarmingGuild() {
+        // TODO: Re-enable when Farming Guild is ready
+        // return selectedLocation == main.ScriptUI.Location.FARMING_GUILD;
+        return false;
+    }
+
     @Override
     public boolean activate() {
         if (!setupDone) {
             return false;
         }
 
-
         if (eatFood && needFood) {
             return true;
         }
 
-
-        if (useSeedBox && needSeedBox) {
+        if (useSeedBox && needSeedBox && !isFarmingGuild()) {
             return true;
         }
 
-
-        if ("BANK_WHEN_FULL".equals(lootMode)) {
+        if ("BANK_WHEN_FULL".equals(lootMode) || "SEED_VAULT".equals(lootMode)) {
             com.osmb.api.item.ItemGroupResult inv = script.getWidgetManager().getInventory().search(java.util.Collections.emptySet());
             if (inv == null) {
                 return false;
             }
 
-
             if (inv.isFull()) {
                 return true;
             }
-
 
             int freeSlots = inv.getFreeSlots();
             if (freeSlots <= 4) {
@@ -66,6 +67,9 @@ public class BankTask extends Task {
     public boolean execute() {
         task = "Banking";
 
+        if ("SEED_VAULT".equals(lootMode) && isFarmingGuild()) {
+            return handleSeedVault();
+        }
 
         if ("DROP_ALL".equals(lootMode) && bankOpenAttempts == 0) {
             task = "Dropping all items before banking";
@@ -321,11 +325,11 @@ public class BankTask extends Task {
         script.getWidgetManager().getTabManager().openTab(com.osmb.api.ui.tabs.Tab.Type.INVENTORY);
 
 
-        task = "Return to Draynor";
-        script.getWalker().walkTo(DRAYNOR_FARMER_LOCATION);
+        task = "Return to " + selectedLocation.getDisplayName();
+        script.getWalker().walkTo(farmerLocation);
         script.submitHumanTask(() -> {
             WorldPosition current = script.getWorldPosition();
-            return current != null && current.distanceTo(DRAYNOR_FARMER_LOCATION) < 5;
+            return current != null && current.distanceTo(farmerLocation) < 5;
         }, script.random(20000, 25000));
 
         return false;  
@@ -379,5 +383,74 @@ public class BankTask extends Task {
         } else {
             script.log("WARN", "Failed to withdraw seed box from bank");
         }
+    }
+
+    private boolean handleSeedVault() {
+        task = "Using Seed Vault";
+
+        // Seed vault location at Farming Guild
+        WorldPosition seedVaultPos = new WorldPosition(1253, 3730, 0);
+
+        // Walk to seed vault area first
+        WorldPosition currentPos = script.getWorldPosition();
+        if (currentPos != null && currentPos.distanceTo(seedVaultPos) > 5) {
+            task = "Walking to Seed Vault";
+            script.log("INFO", "Walking to Seed Vault...");
+            script.getWalker().walkTo(seedVaultPos);
+            script.submitHumanTask(() -> {
+                WorldPosition pos = script.getWorldPosition();
+                return pos != null && pos.distanceTo(seedVaultPos) < 5;
+            }, script.random(8000, 12000));
+        }
+
+        // Now search for the seed vault
+        List<RSObject> seedVaults = script.getObjectManager().getObjects(gameObject -> {
+            if (gameObject.getName() == null || gameObject.getActions() == null) return false;
+            return gameObject.getName().equals("Seed vault")
+                    && Arrays.stream(gameObject.getActions()).anyMatch(action ->
+                    action != null && action.equals("Open"));
+        });
+
+        if (seedVaults.isEmpty()) {
+            script.log("WARN", "No Seed Vault found!");
+            return false;
+        }
+
+        RSObject seedVault = (RSObject) script.getUtils().getClosest(seedVaults);
+        if (seedVault == null) {
+            script.log("WARN", "Failed to get closest Seed Vault");
+            return false;
+        }
+
+        task = "Opening Seed Vault";
+        if (!seedVault.interact("Open")) {
+            script.log("WARN", "Failed to interact with Seed Vault");
+            return false;
+        }
+
+        task = "Wait for Seed Vault to open";
+        script.submitTask(() -> false, script.random(1500, 2500));
+
+        task = "Deposit all seeds to vault";
+
+        // Click the deposit inventory button (chest icon at bottom of seed vault)
+        script.getFinger().tap(new java.awt.Point(255, 175));
+        script.log("INFO", "Clicked deposit inventory button");
+
+        script.submitTask(() -> false, script.random(800, 1200));
+
+        task = "Close Seed Vault";
+        // Click X button at top right of seed vault interface
+        script.getFinger().tap(new java.awt.Point(315, 12));
+        script.submitTask(() -> false, script.random(800, 1200));
+
+        task = "Return to " + selectedLocation.getDisplayName();
+        script.getWalker().walkTo(farmerLocation);
+        script.submitHumanTask(() -> {
+            WorldPosition current = script.getWorldPosition();
+            return current != null && current.distanceTo(farmerLocation) < 5;
+        }, script.random(10000, 15000));
+
+        return false;
     }
 }

@@ -134,8 +134,11 @@ public class KyyzMasterFarmer extends Script {
     public static boolean bankIsFull = false;
     public static int dropThreshold = 24 + (int)(Math.random() * 5);
 
-    public static final com.osmb.api.location.position.types.WorldPosition DRAYNOR_FARMER_LOCATION =
+    public static ScriptUI.Location selectedLocation = ScriptUI.Location.DRAYNOR;
+    public static com.osmb.api.location.position.types.WorldPosition farmerLocation =
         new com.osmb.api.location.position.types.WorldPosition(3079, 3250, 0);
+    public static com.osmb.api.location.position.types.WorldPosition centerTile =
+        new com.osmb.api.location.position.types.WorldPosition(3081, 3249, 0);
 
     public static boolean webhookEnabled = false;
     public static boolean webhookShowUser = false;
@@ -160,12 +163,14 @@ public class KyyzMasterFarmer extends Script {
     @Override
     public int[] regionsToPrioritise() {
         return new int[]{
+                12338,
                 12598,
                 12342,
                 10806,
                 6965,
                 10288,
-                4922
+                4922,
+                5178
         };
     }
 
@@ -197,6 +202,18 @@ public class KyyzMasterFarmer extends Script {
 
         updateSeedPrices();
 
+        selectedLocation = ui.getLocation();
+        farmerLocation = new com.osmb.api.location.position.types.WorldPosition(
+            selectedLocation.getFarmerX(),
+            selectedLocation.getFarmerY(),
+            selectedLocation.getFarmerZ()
+        );
+        centerTile = new com.osmb.api.location.position.types.WorldPosition(
+            selectedLocation.getCenterX(),
+            selectedLocation.getCenterY(),
+            selectedLocation.getFarmerZ()
+        );
+
         targetNPC = "Master Farmer";
         ScriptUI.FoodType selectedFood = ui.getFoodType();
 
@@ -219,6 +236,7 @@ public class KyyzMasterFarmer extends Script {
         useSeedBox = ui.useSeedBox();
 
         log("INFO", "===========================================");
+        log("INFO", "  Location: " + selectedLocation.getDisplayName());
         log("INFO", "  Target: " + targetNPC);
         log("INFO", "  Food: " + (eatFood ? foodAmount + "x " + foodName + " @ " + hpThreshold + " HP" : "Disabled"));
         log("INFO", "  Loot: " + lootMode);
@@ -749,6 +767,10 @@ public class KyyzMasterFarmer extends Script {
         dropThreshold = 24 + (int)(Math.random() * 5);
         totalThievingXP = 0;
         lastWebhookSent = 0;
+
+        selectedLocation = ScriptUI.Location.DRAYNOR;
+        farmerLocation = new com.osmb.api.location.position.types.WorldPosition(3079, 3250, 0);
+        centerTile = new com.osmb.api.location.position.types.WorldPosition(3081, 3249, 0);
     }
 
     private void calculateTotalGp() {
