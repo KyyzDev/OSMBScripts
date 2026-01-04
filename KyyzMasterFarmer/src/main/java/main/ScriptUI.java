@@ -38,8 +38,7 @@ public class ScriptUI {
 
     public enum LootMode {
         DROP_ALL("Drop All"),
-        BANK_WHEN_FULL("Bank When Full"),
-        SEED_VAULT("Seed Vault (Farming Guild)");
+        BANK_WHEN_FULL("Bank When Full");
 
         private final String displayName;
 
@@ -55,7 +54,6 @@ public class ScriptUI {
 
     public enum Location {
         DRAYNOR("Draynor Village", 3079, 3250, 0, 3081, 3249, 12338);
-        // FARMING_GUILD("Farming Guild", 1260, 3726, 0, 1262, 3725, 4922); // TODO: Re-enable when ready
 
         private final String displayName;
         private final int farmerX, farmerY, farmerZ;

@@ -15,18 +15,11 @@ import static main.KyyzMasterFarmer.*;
 
 public class BankTask extends Task {
 
-    private static final String[] BANK_ACTIONS = new String[]{"Bank", "Use"};
     private int bankOpenAttempts = 0;
     private static final int MAX_BANK_ATTEMPTS = 3;
 
     public BankTask(Script script) {
         super(script);
-    }
-
-    private boolean isFarmingGuild() {
-        // TODO: Re-enable when Farming Guild is ready
-        // return selectedLocation == main.ScriptUI.Location.FARMING_GUILD;
-        return false;
     }
 
     @Override
@@ -39,22 +32,17 @@ public class BankTask extends Task {
             return true;
         }
 
-        if (useSeedBox && needSeedBox && !isFarmingGuild()) {
+        if (useSeedBox && needSeedBox) {
             return true;
         }
 
-        if ("BANK_WHEN_FULL".equals(lootMode) || "SEED_VAULT".equals(lootMode)) {
+        if ("BANK_WHEN_FULL".equals(lootMode)) {
             com.osmb.api.item.ItemGroupResult inv = script.getWidgetManager().getInventory().search(java.util.Collections.emptySet());
             if (inv == null) {
                 return false;
             }
 
-            if (inv.isFull()) {
-                return true;
-            }
-
-            int freeSlots = inv.getFreeSlots();
-            if (freeSlots <= 4) {
+            if (inv.isFull() || inv.getFreeSlots() <= 1) {
                 return true;
             }
         }
@@ -67,12 +55,8 @@ public class BankTask extends Task {
     public boolean execute() {
         task = "Banking";
 
-        if ("SEED_VAULT".equals(lootMode) && isFarmingGuild()) {
-            return handleSeedVault();
-        }
-
         if ("DROP_ALL".equals(lootMode) && bankOpenAttempts == 0) {
-            task = "Dropping all items before banking";
+            task = "Dropping items";
 
             script.getWidgetManager().getTabManager().openTab(com.osmb.api.ui.tabs.Tab.Type.INVENTORY);
             script.submitTask(() -> false, 300);
@@ -100,18 +84,11 @@ public class BankTask extends Task {
             }
         }
 
-
         if (!script.getWidgetManager().getBank().isVisible()) {
             bankOpenAttempts++;
 
             if (bankOpenAttempts >= MAX_BANK_ATTEMPTS) {
-                script.log("WARN", "========================================");
-                script.log("WARN", "  FAILED TO OPEN BANK!");
-                script.log("WARN", "  Possible bank PIN issue");
-                script.log("WARN", "  Make sure bank PIN is configured in OSMB");
-                script.log("WARN", "  Logging out safely...");
-                script.log("WARN", "========================================");
-
+                script.log("WARN", "Failed to open bank - possible PIN issue");
                 script.getWidgetManager().getLogoutTab().logout();
                 script.submitTask(() -> false, 2000);
                 script.stop();
@@ -129,7 +106,6 @@ public class BankTask extends Task {
     private void openBank() {
         task = "Open bank";
 
-
         List<RSObject> banksFound = script.getObjectManager().getObjects(gameObject -> {
             if (gameObject.getName() == null || gameObject.getActions() == null) return false;
             return gameObject.getName().equals("Bank booth")
@@ -139,7 +115,6 @@ public class BankTask extends Task {
         });
 
         if (banksFound.isEmpty()) {
-
             banksFound = script.getObjectManager().getObjects(gameObject -> {
                 if (gameObject.getName() == null || gameObject.getActions() == null) return false;
                 return gameObject.getName().equals("Bank chest")
@@ -149,28 +124,23 @@ public class BankTask extends Task {
             });
 
             if (banksFound.isEmpty()) {
-                script.log("WARN", "No bank objects found!");
                 return;
             }
         }
 
         RSObject bank = (RSObject) script.getUtils().getClosest(banksFound);
         if (bank == null) {
-            script.log("WARN", "Failed to get closest bank");
             return;
         }
-
 
         if (!bank.interact("Bank")) {
-            script.log("WARN", "Failed to interact with bank");
             return;
         }
 
-        
         AtomicReference<Timer> positionChangeTimer = new AtomicReference<>(new Timer());
         AtomicReference<WorldPosition> previousPosition = new AtomicReference<>(null);
 
-        task = "Wait for bank open";
+        task = "Wait for bank";
         script.submitHumanTask(() -> {
             WorldPosition current = script.getWorldPosition();
             if (current == null) return false;
@@ -189,15 +159,8 @@ public class BankTask extends Task {
         if (chatMessages != null && chatMessages.isFound() && !chatMessages.isEmpty()) {
             for (String message : chatMessages) {
                 if (message == null) continue;
-
-                String lowerMsg = message.toLowerCase();
-                if (lowerMsg.contains("your bank is full")) {
-                    script.log("WARN", "========================================");
-                    script.log("WARN", "  BANK IS FULL!");
-                    script.log("WARN", "  Chat detected: " + message);
-                    script.log("WARN", "  Please make bank space");
-                    script.log("WARN", "  Stopping script...");
-                    script.log("WARN", "========================================");
+                if (message.toLowerCase().contains("your bank is full")) {
+                    script.log("WARN", "Bank is full - stopping");
                     script.getWidgetManager().getBank().close();
                     script.submitTask(() -> false, 1000);
                     script.stop();
@@ -221,10 +184,8 @@ public class BankTask extends Task {
                 keepItems.addAll(getFoodIds(foodItemId));
             }
 
-
             for (int attempt = 1; attempt <= 3; attempt++) {
                 if (!script.getWidgetManager().getBank().depositAll(keepItems)) {
-                    script.log("WARN", "Deposit all attempt " + attempt + " failed");
                     script.submitTask(() -> false, 500);
                     continue;
                 }
@@ -248,14 +209,12 @@ public class BankTask extends Task {
                 if (onlyKeepItems) {
                     break;
                 }
-
             }
 
             if (useSeedBox) {
                 script.submitTask(() -> false, 300);
                 com.osmb.api.item.ItemGroupResult invCheck = script.getWidgetManager().getInventory().search(SEED_BOX_IDS);
                 if (invCheck == null || invCheck.isEmpty()) {
-                    script.log("WARN", "Seed box was deposited - will withdraw again");
                     needSeedBox = true;
                 }
             }
@@ -263,18 +222,13 @@ public class BankTask extends Task {
             script.submitTask(() -> false, 500);
         }
 
-
         if (eatFood && foodItemId > 0) {
             task = "Withdraw food";
             java.util.Set<Integer> allFoodIds = getFoodIds(foodItemId);
 
             com.osmb.api.item.ItemGroupResult bankSnapshot = script.getWidgetManager().getBank().search(allFoodIds);
             if (bankSnapshot == null || bankSnapshot.isEmpty()) {
-                script.log("WARN", "========================================");
-                script.log("WARN", "  OUT OF FOOD IN BANK!");
-                script.log("WARN", "  No " + foodName + " found (IDs: " + allFoodIds + ")");
-                script.log("WARN", "  Logging out safely...");
-                script.log("WARN", "========================================");
+                script.log("WARN", "Out of food - logging out");
                 script.getWidgetManager().getBank().close();
                 script.submitTask(() -> false, 500);
                 script.getWidgetManager().getLogoutTab().logout();
@@ -293,11 +247,7 @@ public class BankTask extends Task {
                 int toWithdraw = foodAmount - currentFood;
                 boolean withdrawSuccess = script.getWidgetManager().getBank().withdraw(actualFoodId, toWithdraw);
                 if (!withdrawSuccess) {
-                    script.log("WARN", "========================================");
-                    script.log("WARN", "  FAILED TO WITHDRAW FOOD!");
-                    script.log("WARN", "  ID: " + actualFoodId + " amount: " + toWithdraw);
-                    script.log("WARN", "  Logging out safely...");
-                    script.log("WARN", "========================================");
+                    script.log("WARN", "Failed to withdraw food - logging out");
                     script.getWidgetManager().getBank().close();
                     script.submitTask(() -> false, 500);
                     script.getWidgetManager().getLogoutTab().logout();
@@ -315,15 +265,11 @@ public class BankTask extends Task {
             withdrawSeedBox();
         }
 
-
-        task = "Return to farming";
+        task = "Close bank";
         script.getWidgetManager().getBank().close();
         script.submitHumanTask(() -> !script.getWidgetManager().getBank().isVisible(), script.random(4000, 6000));
 
-        
-        task = "Reopen inventory";
         script.getWidgetManager().getTabManager().openTab(com.osmb.api.ui.tabs.Tab.Type.INVENTORY);
-
 
         task = "Return to " + selectedLocation.getDisplayName();
         script.getWalker().walkTo(farmerLocation);
@@ -332,7 +278,7 @@ public class BankTask extends Task {
             return current != null && current.distanceTo(farmerLocation) < 5;
         }, script.random(20000, 25000));
 
-        return false;  
+        return false;
     }
 
     private void emptySeedBox() {
@@ -341,38 +287,30 @@ public class BankTask extends Task {
         script.getWidgetManager().getTabManager().openTab(com.osmb.api.ui.tabs.Tab.Type.INVENTORY);
         script.submitTask(() -> false, 300);
 
-        com.osmb.api.item.ItemGroupResult seedBoxCheck =
-            script.getWidgetManager().getInventory().search(SEED_BOX_IDS);
-
+        com.osmb.api.item.ItemGroupResult seedBoxCheck = script.getWidgetManager().getInventory().search(SEED_BOX_IDS);
         if (seedBoxCheck == null || seedBoxCheck.isEmpty()) {
-            script.log("WARN", "Seed box not found in inventory");
             return;
         }
 
         com.osmb.api.item.ItemSearchResult seedBox = seedBoxCheck.getItem(SEED_BOX_IDS);
         if (seedBox != null && seedBox.interact("Empty")) {
             script.submitTask(() -> false, 800);
-        } else {
-            if (seedBox != null && seedBox.interact("Check")) {
-                script.submitTask(() -> false, 500);
-            }
+        } else if (seedBox != null) {
+            seedBox.interact("Check");
+            script.submitTask(() -> false, 500);
         }
     }
 
     private void withdrawSeedBox() {
         task = "Withdraw seed box";
 
-        com.osmb.api.item.ItemGroupResult bankSnapshot =
-            script.getWidgetManager().getBank().search(SEED_BOX_IDS);
-
+        com.osmb.api.item.ItemGroupResult bankSnapshot = script.getWidgetManager().getBank().search(SEED_BOX_IDS);
         if (bankSnapshot == null || bankSnapshot.isEmpty()) {
-            script.log("WARN", "Seed box not found in bank - make sure to have one before starting");
             return;
         }
 
         com.osmb.api.item.ItemSearchResult seedBoxInBank = bankSnapshot.getItem(SEED_BOX_IDS);
         if (seedBoxInBank == null) {
-            script.log("WARN", "Could not get seed box from bank");
             return;
         }
 
@@ -380,77 +318,7 @@ public class BankTask extends Task {
         if (withdrawSuccess) {
             needSeedBox = false;
             script.submitTask(() -> false, 500);
-        } else {
-            script.log("WARN", "Failed to withdraw seed box from bank");
         }
     }
 
-    private boolean handleSeedVault() {
-        task = "Using Seed Vault";
-
-        // Seed vault location at Farming Guild
-        WorldPosition seedVaultPos = new WorldPosition(1253, 3730, 0);
-
-        // Walk to seed vault area first
-        WorldPosition currentPos = script.getWorldPosition();
-        if (currentPos != null && currentPos.distanceTo(seedVaultPos) > 5) {
-            task = "Walking to Seed Vault";
-            script.log("INFO", "Walking to Seed Vault...");
-            script.getWalker().walkTo(seedVaultPos);
-            script.submitHumanTask(() -> {
-                WorldPosition pos = script.getWorldPosition();
-                return pos != null && pos.distanceTo(seedVaultPos) < 5;
-            }, script.random(8000, 12000));
-        }
-
-        // Now search for the seed vault
-        List<RSObject> seedVaults = script.getObjectManager().getObjects(gameObject -> {
-            if (gameObject.getName() == null || gameObject.getActions() == null) return false;
-            return gameObject.getName().equals("Seed vault")
-                    && Arrays.stream(gameObject.getActions()).anyMatch(action ->
-                    action != null && action.equals("Open"));
-        });
-
-        if (seedVaults.isEmpty()) {
-            script.log("WARN", "No Seed Vault found!");
-            return false;
-        }
-
-        RSObject seedVault = (RSObject) script.getUtils().getClosest(seedVaults);
-        if (seedVault == null) {
-            script.log("WARN", "Failed to get closest Seed Vault");
-            return false;
-        }
-
-        task = "Opening Seed Vault";
-        if (!seedVault.interact("Open")) {
-            script.log("WARN", "Failed to interact with Seed Vault");
-            return false;
-        }
-
-        task = "Wait for Seed Vault to open";
-        script.submitTask(() -> false, script.random(1500, 2500));
-
-        task = "Deposit all seeds to vault";
-
-        // Click the deposit inventory button (chest icon at bottom of seed vault)
-        script.getFinger().tap(new java.awt.Point(255, 175));
-        script.log("INFO", "Clicked deposit inventory button");
-
-        script.submitTask(() -> false, script.random(800, 1200));
-
-        task = "Close Seed Vault";
-        // Click X button at top right of seed vault interface
-        script.getFinger().tap(new java.awt.Point(315, 12));
-        script.submitTask(() -> false, script.random(800, 1200));
-
-        task = "Return to " + selectedLocation.getDisplayName();
-        script.getWalker().walkTo(farmerLocation);
-        script.submitHumanTask(() -> {
-            WorldPosition current = script.getWorldPosition();
-            return current != null && current.distanceTo(farmerLocation) < 5;
-        }, script.random(10000, 15000));
-
-        return false;
-    }
 }

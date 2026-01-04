@@ -7,6 +7,7 @@ import com.osmb.api.visual.drawing.Canvas;
 import com.osmb.api.visual.image.Image;
 import tasks.*;
 import utils.Task;
+import utils.StatsReporter;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -19,6 +20,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @ScriptDefinition(
         name = "Kyyz Master Farmer",
@@ -151,7 +153,7 @@ public class KyyzMasterFarmer extends Script {
     private static String user = "";
 
     private List<Task> tasks;
-
+    private StatsReporter statsReporter;
 
     private static final Font FONT_TITLE = new Font("Small Fonts", Font.BOLD, 14);
     private static final Font FONT_LABEL = new Font("Small Fonts", Font.PLAIN, 10);
@@ -253,7 +255,28 @@ public class KyyzMasterFarmer extends Script {
                 new ThieveTask(this)
         );
 
+        statsReporter = new StatsReporter("master-farmer");
+        statsReporter.start(() -> {
+            int totalSeeds = guamSeedCount + marrentillSeedCount + tarrominSeedCount + harralanderSeedCount +
+                ranarrSeedCount + toadflaxSeedCount + iritSeedCount + avantoeSeedCount + kwuarmSeedCount +
+                snapdragonSeedCount + cadantineSeedCount + lantadymeSeedCount + dwarfWeedSeedCount +
+                torstolSeedCount + limpwurtSeedCount + watermelonSeedCount + snapeGrassSeedCount + seaweedSporeCount;
+            return Map.of(
+                "thieves", successfulPickpockets,
+                "seeds", totalSeeds,
+                "xp", totalThievingXP,
+                "gp", totalGpValue,
+                "runtime", (System.currentTimeMillis() - startTime) / 60000
+            );
+        });
+
         log("INFO", "Script initialized!");
+    }
+
+    public void onStop() {
+        if (statsReporter != null) {
+            statsReporter.stop();
+        }
     }
 
     @Override
@@ -326,6 +349,7 @@ public class KyyzMasterFarmer extends Script {
         } catch (Exception e) {
             log("WARN", "Failed to logout: " + e.getMessage());
         }
+        onStop();
         stop();
     }
 

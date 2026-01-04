@@ -127,10 +127,7 @@ public class ThieveTask extends Task {
                 lastSuccessfulAction = System.currentTimeMillis();
                 hasAttemptedPickpocket = true;
 
-                // Quick wait for pickpocket to register
                 script.submitTask(() -> false, script.random(80, 150));
-
-                // Track chat for XP counting
                 trackPickpocketResultFromChat();
 
                 if (useSeedBox) {
@@ -148,11 +145,7 @@ public class ThieveTask extends Task {
                     }
                 }
 
-                // Brief wait for animation - reduced from 5000ms
-                script.pollFramesUntil(() ->
-                    !script.getPixelAnalyzer().isPlayerAnimating(0.3),
-                    1500
-                );
+                script.pollFramesUntil(() -> !script.getPixelAnalyzer().isPlayerAnimating(0.3), 1500);
 
                 if (processedMessages.size() > 200) {
                     processedMessages.clear();
@@ -182,88 +175,69 @@ public class ThieveTask extends Task {
 
     private void trackPickpocketResultFromChat() {
         try {
-            // Just read chat without switching tabs - faster
             com.osmb.api.utils.UIResultList<String> chatMessages = script.getWidgetManager().getChatbox().getText();
 
             if (chatMessages == null || !chatMessages.isFound() || chatMessages.isEmpty()) {
                 return;
             }
 
-        for (String message : chatMessages) {
-            if (message == null) continue;
-            if (processedMessages.contains(message)) continue;
+            for (String message : chatMessages) {
+                if (message == null) continue;
+                if (processedMessages.contains(message)) continue;
 
-            String lowerMsg = message.toLowerCase();
+                String lowerMsg = message.toLowerCase();
 
-            if (lowerMsg.contains("you steal") || lowerMsg.contains("you pick the") || lowerMsg.contains("you pickpocket")) {
-                successfulPickpockets++;
-                totalThievingXP += MASTER_FARMER_XP;
-                processedMessages.add(message);
-                chatDetected = true;
-            } else if (lowerMsg.contains("you fail") || lowerMsg.contains("failed to pick") || lowerMsg.contains("couldn't get")) {
-                failedPickpockets++;
-                processedMessages.add(message);
-                chatDetected = true;
+                if (lowerMsg.contains("you steal") || lowerMsg.contains("you pick the") || lowerMsg.contains("you pickpocket")) {
+                    successfulPickpockets++;
+                    totalThievingXP += MASTER_FARMER_XP;
+                    processedMessages.add(message);
+                    chatDetected = true;
+                } else if (lowerMsg.contains("you fail") || lowerMsg.contains("failed to pick") || lowerMsg.contains("couldn't get")) {
+                    failedPickpockets++;
+                    processedMessages.add(message);
+                    chatDetected = true;
+                }
+
+                if (!lowerMsg.contains("you steal")) continue;
+
+                if (lowerMsg.contains("guam seed")) {
+                    guamSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("marrentill seed")) {
+                    marrentillSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("tarromin seed")) {
+                    tarrominSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("harralander seed")) {
+                    harralanderSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("ranarr seed")) {
+                    ranarrSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("toadflax seed")) {
+                    toadflaxSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("irit seed")) {
+                    iritSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("avantoe seed")) {
+                    avantoeSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("kwuarm seed")) {
+                    kwuarmSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("snapdragon seed")) {
+                    snapdragonSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("cadantine seed")) {
+                    cadantineSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("lantadyme seed")) {
+                    lantadymeSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("dwarf weed seed")) {
+                    dwarfWeedSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("torstol seed")) {
+                    torstolSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("limpwurt seed")) {
+                    limpwurtSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("watermelon seed")) {
+                    watermelonSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("snape grass seed")) {
+                    snapeGrassSeedCount += parseAmount(message);
+                } else if (lowerMsg.contains("seaweed spore")) {
+                    seaweedSporeCount += parseAmount(message);
+                }
             }
-
-            if (!lowerMsg.contains("you steal")) continue;
-
-            if (lowerMsg.contains("guam seed")) {
-                int amount = parseAmount(message);
-                guamSeedCount += amount;
-            } else if (lowerMsg.contains("marrentill seed")) {
-                int amount = parseAmount(message);
-                marrentillSeedCount += amount;
-            } else if (lowerMsg.contains("tarromin seed")) {
-                int amount = parseAmount(message);
-                tarrominSeedCount += amount;
-            } else if (lowerMsg.contains("harralander seed")) {
-                int amount = parseAmount(message);
-                harralanderSeedCount += amount;
-            } else if (lowerMsg.contains("ranarr seed")) {
-                int amount = parseAmount(message);
-                ranarrSeedCount += amount;
-            } else if (lowerMsg.contains("toadflax seed")) {
-                int amount = parseAmount(message);
-                toadflaxSeedCount += amount;
-            } else if (lowerMsg.contains("irit seed")) {
-                int amount = parseAmount(message);
-                iritSeedCount += amount;
-            } else if (lowerMsg.contains("avantoe seed")) {
-                int amount = parseAmount(message);
-                avantoeSeedCount += amount;
-            } else if (lowerMsg.contains("kwuarm seed")) {
-                int amount = parseAmount(message);
-                kwuarmSeedCount += amount;
-            } else if (lowerMsg.contains("snapdragon seed")) {
-                int amount = parseAmount(message);
-                snapdragonSeedCount += amount;
-            } else if (lowerMsg.contains("cadantine seed")) {
-                int amount = parseAmount(message);
-                cadantineSeedCount += amount;
-            } else if (lowerMsg.contains("lantadyme seed")) {
-                int amount = parseAmount(message);
-                lantadymeSeedCount += amount;
-            } else if (lowerMsg.contains("dwarf weed seed")) {
-                int amount = parseAmount(message);
-                dwarfWeedSeedCount += amount;
-            } else if (lowerMsg.contains("torstol seed")) {
-                int amount = parseAmount(message);
-                torstolSeedCount += amount;
-            } else if (lowerMsg.contains("limpwurt seed")) {
-                int amount = parseAmount(message);
-                limpwurtSeedCount += amount;
-            } else if (lowerMsg.contains("watermelon seed")) {
-                int amount = parseAmount(message);
-                watermelonSeedCount += amount;
-            } else if (lowerMsg.contains("snape grass seed")) {
-                int amount = parseAmount(message);
-                snapeGrassSeedCount += amount;
-            } else if (lowerMsg.contains("seaweed spore")) {
-                int amount = parseAmount(message);
-                seaweedSporeCount += amount;
-            }
-        }
         } catch (Exception e) {
         }
     }
@@ -315,5 +289,4 @@ public class ThieveTask extends Task {
             return false;
         }
     }
-
 }
