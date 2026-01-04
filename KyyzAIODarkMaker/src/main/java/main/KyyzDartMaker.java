@@ -7,10 +7,12 @@ import com.osmb.api.visual.drawing.Canvas;
 import tasks.FletchTask;
 import tasks.Setup;
 import utils.Task;
+import utils.StatsReporter;
 
 import java.awt.*;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @ScriptDefinition(
         name = "Kyyz Dart Maker",
@@ -35,6 +37,7 @@ public class KyyzDartMaker extends Script {
     public static final int HEADLESS_ATLATL_DART = 30996;
 
     private List<Task> tasks;
+    private StatsReporter statsReporter;
 
     private static final Font FONT_TITLE = new Font("Small Fonts", Font.BOLD, 14);
     private static final Font FONT_LABEL = new Font("Small Fonts", Font.PLAIN, 10);
@@ -62,6 +65,22 @@ public class KyyzDartMaker extends Script {
                 new Setup(this),
                 new FletchTask(this)
         );
+
+        statsReporter = new StatsReporter("dart-maker");
+        statsReporter.start(() -> {
+            int totalXp = (int) Math.round(dartsMade * xpPerDart);
+            return Map.of(
+                "dartsMade", dartsMade,
+                "xpGained", totalXp,
+                "runtime", (System.currentTimeMillis() - startTime) / 60000
+            );
+        });
+    }
+
+    public void onStop() {
+        if (statsReporter != null) {
+            statsReporter.stop();
+        }
     }
 
     @Override
