@@ -16,16 +16,6 @@ public class FletchTask extends Task {
         super(script);
     }
 
-    private int getMinClickDelay() {
-        int baseDelay = 20;
-        return (int) (baseDelay * (100.0 / Math.max(tapSpeed, 1)));
-    }
-
-    private int getMaxClickDelay() {
-        int baseDelay = 50;
-        return (int) (baseDelay * (100.0 / Math.max(tapSpeed, 1)));
-    }
-
     @Override
     public boolean activate() {
         if (!setupDone) {
@@ -44,16 +34,17 @@ public class FletchTask extends Task {
 
     @Override
     public boolean execute() {
-        task = "Fletching darts";
-
         DialogueType dialogueType = script.getWidgetManager().getDialogue().getDialogueType();
+
         if (dialogueType == DialogueType.ITEM_OPTION) {
-            handleDialogue();
+            task = "Selecting dart";
+            script.getWidgetManager().getDialogue().selectItem(resultingDartID, selectedDartTipID);
+            task = "Making darts";
+            dartsMade += 10;
             return true;
         }
 
         if (dialogueType == DialogueType.TAP_HERE_TO_CONTINUE) {
-            script.submitTask(() -> false, script.random(800, 1500));
             return true;
         }
 
@@ -78,18 +69,15 @@ public class FletchTask extends Task {
             return true;
         }
 
-        task = "Combining items";
+        task = "Combining";
 
         if (!tipItem.interact(true)) {
             return true;
         }
 
-        if (tapSpeed >= 100) {
-            if (script.random(100) < 15) {
-                script.submitTask(() -> false, script.random(10, 30));
-            }
-        } else {
-            script.submitTask(() -> false, script.random(getMinClickDelay(), getMaxClickDelay()));
+        if (tapSpeed < 100) {
+            int delay = (int) (30 * (100.0 / Math.max(tapSpeed, 1)));
+            script.submitTask(() -> false, script.random(delay / 2, delay));
         }
 
         if (!primaryItem.interact(true)) {
@@ -97,22 +85,9 @@ public class FletchTask extends Task {
             return true;
         }
 
+        task = "Making darts";
+        dartsMade += 10;
+
         return true;
-    }
-
-    private void handleDialogue() {
-        task = "Selecting dart type";
-
-        boolean selected = script.getWidgetManager().getDialogue()
-                .selectItem(resultingDartID, selectedDartTipID);
-
-        if (!selected) {
-            selected = script.getWidgetManager().getDialogue().selectItem(resultingDartID);
-        }
-
-        if (selected) {
-            task = "Making darts";
-            dartsMade += 10;
-        }
     }
 }
