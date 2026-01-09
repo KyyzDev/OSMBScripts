@@ -17,15 +17,11 @@ public class FletchTask extends Task {
     }
 
     private int getMinClickDelay() {
-        // Proportional scaling: 50% = 2x slower, 10% = 10x slower, 1% = 100x slower
-        // At 100%: 20ms, at 50%: 40ms, at 10%: 200ms, at 1%: 2000ms
         int baseDelay = 20;
         return (int) (baseDelay * (100.0 / Math.max(tapSpeed, 1)));
     }
 
     private int getMaxClickDelay() {
-        // Proportional scaling with slightly higher max
-        // At 100%: 50ms, at 50%: 100ms, at 10%: 500ms, at 1%: 5000ms
         int baseDelay = 50;
         return (int) (baseDelay * (100.0 / Math.max(tapSpeed, 1)));
     }
@@ -84,16 +80,11 @@ public class FletchTask extends Task {
 
         task = "Combining items";
 
-        // Use interact(true) to bypass human delays for fast clicking
         if (!tipItem.interact(true)) {
             return true;
         }
 
-        // Anti-ban: small delay between clicks, scales with speed
-        // At 100%: 15% chance of tiny 10-30ms delay
-        // At lower speeds: always delay based on speed setting
         if (tapSpeed >= 100) {
-            // Occasional micro-delay for anti-ban (15% chance)
             if (script.random(100) < 15) {
                 script.submitTask(() -> false, script.random(10, 30));
             }
@@ -106,7 +97,6 @@ public class FletchTask extends Task {
             return true;
         }
 
-        // Track that we clicked - will count darts when dialogue is handled
         return true;
     }
 
@@ -122,7 +112,6 @@ public class FletchTask extends Task {
 
         if (selected) {
             task = "Making darts";
-            // Each dialogue click = 10 darts made (one game action)
             dartsMade += 10;
         }
     }

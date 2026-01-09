@@ -29,7 +29,7 @@ import java.util.Map;
 public class KyyzDartMaker extends Script {
     public static final String scriptVersion = "1.2";
     public static boolean setupDone = false;
-    private static int authState = 0; // 0=unchecked, 1=valid, -1=invalid
+    private static int authState = 0;
     public static String task = "Initialize";
     public static int dartsMade = 0;
     public static long startTime = System.currentTimeMillis();
@@ -51,7 +51,6 @@ public class KyyzDartMaker extends Script {
     private static final Font FONT_LABEL = new Font("Small Fonts", Font.PLAIN, 10);
     private static final Font FONT_VALUE = new Font("Small Fonts", Font.BOLD, 10);
 
-    // Encoded endpoint - harder to find/modify
     private static final String EP = "aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL0t5eXpEZXYvT1NNQlNjcmlwdHMvbWFpbi9LeXl6QUlPRGFya01ha2VyL3ZlcnNpb24udHh0";
     private static final String UPDATE_URL = "https://github.com/KyyzDev/OSMBScripts/tree/main/KyyzAIODarkMaker/jar";
 
@@ -88,7 +87,6 @@ public class KyyzDartMaker extends Script {
         startTime = System.currentTimeMillis();
         lastCheck = System.currentTimeMillis();
 
-        // Integrated auth check
         authState = verifyAuth() ? 1 : -1;
 
         if (authState != 1) {
@@ -134,7 +132,6 @@ public class KyyzDartMaker extends Script {
 
     @Override
     public int poll() {
-        // Periodic re-verification every 10 minutes
         if (System.currentTimeMillis() - lastCheck > 600000) {
             lastCheck = System.currentTimeMillis();
             if (!verifyAuth()) {
@@ -143,7 +140,6 @@ public class KyyzDartMaker extends Script {
             }
         }
 
-        // Auth check integrated into poll
         if (authState != 1) return 0;
 
         if (tasks != null) {
@@ -159,7 +155,6 @@ public class KyyzDartMaker extends Script {
 
     @Override
     public void onPaint(Canvas c) {
-        // Show error if auth failed
         if (authState == -1) {
             drawAuthMessage(c);
             return;
