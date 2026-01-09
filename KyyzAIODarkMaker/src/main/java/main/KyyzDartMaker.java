@@ -10,7 +10,12 @@ import utils.Task;
 import utils.StatsReporter;
 
 import java.awt.*;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +29,7 @@ import java.util.Map;
 public class KyyzDartMaker extends Script {
     public static final String scriptVersion = "1.1";
     public static boolean setupDone = false;
+    private static int authState = 0; // 0=unchecked, 1=valid, -1=invalid
     public static String task = "Initialize";
     public static int dartsMade = 0;
     public static long startTime = System.currentTimeMillis();
@@ -32,19 +38,45 @@ public class KyyzDartMaker extends Script {
     public static int primaryIngredientID = 314;
     public static int resultingDartID = 810;
     public static double xpPerDart = 11.2;
+    public static int tapSpeed = 50;
 
     public static final int ATLATL_DART_TIP = 30998;
     public static final int HEADLESS_ATLATL_DART = 30996;
 
     private List<Task> tasks;
     private StatsReporter statsReporter;
+    private long lastCheck = 0;
 
     private static final Font FONT_TITLE = new Font("Small Fonts", Font.BOLD, 14);
     private static final Font FONT_LABEL = new Font("Small Fonts", Font.PLAIN, 10);
     private static final Font FONT_VALUE = new Font("Small Fonts", Font.BOLD, 10);
 
+    // Encoded endpoint - harder to find/modify
+    private static final String EP = "aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL0t5eXpEZXYvT1NNQlNjcmlwdHMvbWFpbi9LeXl6QUlPRGFya01ha2VyL3ZlcnNpb24udHh0";
+
     public KyyzDartMaker(Object scriptCore) {
         super(scriptCore);
+    }
+
+    private boolean verifyAuth() {
+        try {
+            String endpoint = new String(Base64.getDecoder().decode(EP));
+            URL url = new URL(endpoint);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+
+            if (conn.getResponseCode() != 200) return false;
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                String remote = reader.readLine();
+                return remote != null && scriptVersion.trim().equals(remote.trim());
+            }
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override
@@ -53,12 +85,22 @@ public class KyyzDartMaker extends Script {
         dartsMade = 0;
         task = "Initialize";
         startTime = System.currentTimeMillis();
+        lastCheck = System.currentTimeMillis();
+
+        // Integrated auth check
+        authState = verifyAuth() ? 1 : -1;
+
+        if (authState != 1) {
+            log(getClass().getSimpleName(), "Version mismatch or verification failed. Please update from GitHub.");
+            return;
+        }
 
         ScriptUI ui = new ScriptUI(this);
         javafx.scene.Scene scene = ui.buildScene(this);
         getStageController().show(scene, "Kyyz Dart Maker", true);
 
         selectedDartTipID = ui.getSelectedDartTipID();
+        tapSpeed = ui.getTapSpeed();
         configureDartType(selectedDartTipID);
 
         tasks = Arrays.asList(
@@ -85,6 +127,18 @@ public class KyyzDartMaker extends Script {
 
     @Override
     public int poll() {
+        // Periodic re-verification every 10 minutes
+        if (System.currentTimeMillis() - lastCheck > 600000) {
+            lastCheck = System.currentTimeMillis();
+            if (!verifyAuth()) {
+                authState = -1;
+                tasks = null;
+            }
+        }
+
+        // Auth check integrated into poll
+        if (authState != 1) return 0;
+
         if (tasks != null) {
             for (Task task : tasks) {
                 if (task.activate()) {
@@ -98,6 +152,12 @@ public class KyyzDartMaker extends Script {
 
     @Override
     public void onPaint(Canvas c) {
+        // Show error if auth failed
+        if (authState == -1) {
+            drawAuthMessage(c);
+            return;
+        }
+
         long elapsed = System.currentTimeMillis() - startTime;
         String runtime = formatRuntime(elapsed);
 
@@ -181,6 +241,27 @@ public class KyyzDartMaker extends Script {
         long minutes = (seconds % 3600) / 60;
         long secs = seconds % 60;
         return String.format("%02d:%02d:%02d", hours, minutes, secs);
+    }
+
+    private void drawAuthMessage(Canvas c) {
+        final int x = 10;
+        final int y = 50;
+        final int width = 300;
+        final int height = 100;
+
+        final Color bgColor = new Color(80, 20, 20, 240);
+        final Color borderColor = new Color(255, 0, 0);
+        final int textColor = new Color(255, 255, 255).getRGB();
+        final int titleColor = new Color(255, 80, 80).getRGB();
+
+        c.fillRect(x - 2, y - 2, width + 4, height + 4, borderColor.getRGB(), 1);
+        c.fillRect(x, y, width, height, bgColor.getRGB(), 1);
+
+        c.drawText("OUTDATED VERSION!", x + 10, y + 25, titleColor, FONT_TITLE);
+
+        c.drawText("Your version: " + scriptVersion, x + 10, y + 50, textColor, FONT_LABEL);
+        c.drawText("Please update from GitHub!", x + 10, y + 70, textColor, FONT_LABEL);
+        c.drawText("Script will not run.", x + 10, y + 90, titleColor, FONT_LABEL);
     }
 
     private String formatNumber(int number) {

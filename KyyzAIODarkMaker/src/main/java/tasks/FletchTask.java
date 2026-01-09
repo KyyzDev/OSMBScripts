@@ -4,21 +4,30 @@ import com.osmb.api.item.ItemGroupResult;
 import com.osmb.api.item.ItemSearchResult;
 import com.osmb.api.script.Script;
 import com.osmb.api.ui.chatbox.dialogue.DialogueType;
-import com.osmb.api.utils.timing.Timer;
 import utils.Task;
 
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static main.KyyzDartMaker.*;
 
 public class FletchTask extends Task {
 
-    private int previousTipCount = -1;
-    private int batchesMade = 0;
-
     public FletchTask(Script script) {
         super(script);
+    }
+
+    private int getMinClickDelay() {
+        // Proportional scaling: 50% = 2x slower, 10% = 10x slower, 1% = 100x slower
+        // At 100%: 20ms, at 50%: 40ms, at 10%: 200ms, at 1%: 2000ms
+        int baseDelay = 20;
+        return (int) (baseDelay * (100.0 / Math.max(tapSpeed, 1)));
+    }
+
+    private int getMaxClickDelay() {
+        // Proportional scaling with slightly higher max
+        // At 100%: 50ms, at 50%: 100ms, at 10%: 500ms, at 1%: 5000ms
+        int baseDelay = 50;
+        return (int) (baseDelay * (100.0 / Math.max(tapSpeed, 1)));
     }
 
     @Override
@@ -53,7 +62,6 @@ public class FletchTask extends Task {
         }
 
         script.getWidgetManager().getInventory().unSelectItemIfSelected();
-        script.submitTask(() -> false, script.random(100, 200));
 
         ItemGroupResult inv = script.getWidgetManager().getInventory()
                 .search(Set.of(primaryIngredientID, selectedDartTipID));
@@ -76,27 +84,29 @@ public class FletchTask extends Task {
 
         task = "Combining items";
 
-        if (!tipItem.interact()) {
-            return true;
-        }
-        script.submitTask(() -> false, script.random(80, 150));
-
-        if (!primaryItem.interact()) {
-            script.getWidgetManager().getInventory().unSelectItemIfSelected();
+        // Use interact(true) to bypass human delays for fast clicking
+        if (!tipItem.interact(true)) {
             return true;
         }
 
-        boolean dialogueOpened = script.submitHumanTask(() -> {
-            DialogueType dt = script.getWidgetManager().getDialogue().getDialogueType();
-            return dt == DialogueType.ITEM_OPTION;
-        }, 3000);
-
-        if (dialogueOpened) {
-            handleDialogue();
+        // Anti-ban: small delay between clicks, scales with speed
+        // At 100%: 15% chance of tiny 10-30ms delay
+        // At lower speeds: always delay based on speed setting
+        if (tapSpeed >= 100) {
+            // Occasional micro-delay for anti-ban (15% chance)
+            if (script.random(100) < 15) {
+                script.submitTask(() -> false, script.random(10, 30));
+            }
         } else {
-            script.getWidgetManager().getInventory().unSelectItemIfSelected();
+            script.submitTask(() -> false, script.random(getMinClickDelay(), getMaxClickDelay()));
         }
 
+        if (!primaryItem.interact(true)) {
+            script.getWidgetManager().getInventory().unSelectItemIfSelected();
+            return true;
+        }
+
+        // Track that we clicked - will count darts when dialogue is handled
         return true;
     }
 
@@ -110,63 +120,10 @@ public class FletchTask extends Task {
             selected = script.getWidgetManager().getDialogue().selectItem(resultingDartID);
         }
 
-        if (!selected) {
-            return;
+        if (selected) {
+            task = "Making darts";
+            // Each dialogue click = 10 darts made (one game action)
+            dartsMade += 10;
         }
-
-        task = "Making darts";
-        waitUntilFinishedProducing();
-    }
-
-    private void waitUntilFinishedProducing() {
-        AtomicInteger lastTipCount = new AtomicInteger(-1);
-        Timer amountChangeTimer = new Timer();
-        int amountChangeTimeout = script.random(3500, 6000);
-
-        script.submitHumanTask(() -> {
-            DialogueType dialogueType = script.getWidgetManager().getDialogue().getDialogueType();
-            if (dialogueType == DialogueType.TAP_HERE_TO_CONTINUE) {
-                script.submitTask(() -> false, script.random(800, 2500));
-                return true;
-            }
-
-            if (amountChangeTimer.timeElapsed() > amountChangeTimeout) {
-                return true;
-            }
-
-            ItemGroupResult inv = script.getWidgetManager().getInventory()
-                    .search(Set.of(primaryIngredientID, selectedDartTipID));
-
-            if (inv == null) {
-                return false;
-            }
-
-            if (!inv.contains(primaryIngredientID) || !inv.contains(selectedDartTipID)) {
-                if (previousTipCount > 0 && lastTipCount.get() >= 0) {
-                    int made = previousTipCount - lastTipCount.get();
-                    if (made > 0) {
-                        dartsMade += made;
-                        batchesMade++;
-                    }
-                }
-                return true;
-            }
-
-            int currentTipCount = inv.getAmount(selectedDartTipID);
-            if (lastTipCount.get() == -1) {
-                lastTipCount.set(currentTipCount);
-                previousTipCount = currentTipCount;
-                amountChangeTimer.reset();
-            } else if (currentTipCount < lastTipCount.get()) {
-                int made = lastTipCount.get() - currentTipCount;
-                dartsMade += made;
-                lastTipCount.set(currentTipCount);
-                amountChangeTimer.reset();
-            }
-
-            return false;
-        }, 60000, false, true);
-
-        batchesMade++;
     }
 }
