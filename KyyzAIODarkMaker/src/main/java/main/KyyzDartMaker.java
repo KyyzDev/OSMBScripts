@@ -23,11 +23,11 @@ import java.util.Map;
         name = "Kyyz Dart Maker",
         description = "Fletch darts using proper OSMB dialogue handling. Supports all dart types.",
         skillCategory = SkillCategory.FLETCHING,
-        version = 1.1,
+        version = 1.2,
         author = "Kyyz"
 )
 public class KyyzDartMaker extends Script {
-    public static final String scriptVersion = "1.1";
+    public static final String scriptVersion = "1.2";
     public static boolean setupDone = false;
     private static int authState = 0; // 0=unchecked, 1=valid, -1=invalid
     public static String task = "Initialize";
@@ -53,6 +53,7 @@ public class KyyzDartMaker extends Script {
 
     // Encoded endpoint - harder to find/modify
     private static final String EP = "aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL0t5eXpEZXYvT1NNQlNjcmlwdHMvbWFpbi9LeXl6QUlPRGFya01ha2VyL3ZlcnNpb24udHh0";
+    private static final String UPDATE_URL = "https://github.com/KyyzDev/OSMBScripts/tree/main/KyyzAIODarkMaker/jar";
 
     public KyyzDartMaker(Object scriptCore) {
         super(scriptCore);
@@ -91,7 +92,13 @@ public class KyyzDartMaker extends Script {
         authState = verifyAuth() ? 1 : -1;
 
         if (authState != 1) {
-            log(getClass().getSimpleName(), "Version mismatch or verification failed. Please update from GitHub.");
+            log(getClass().getSimpleName(), "========================================");
+            log(getClass().getSimpleName(), "OUTDATED VERSION - UPDATE REQUIRED!");
+            log(getClass().getSimpleName(), "========================================");
+            log(getClass().getSimpleName(), "Download: " + UPDATE_URL);
+            log(getClass().getSimpleName(), "Download: " + UPDATE_URL);
+            log(getClass().getSimpleName(), "Download: " + UPDATE_URL);
+            log(getClass().getSimpleName(), "========================================");
             return;
         }
 
@@ -246,13 +253,14 @@ public class KyyzDartMaker extends Script {
     private void drawAuthMessage(Canvas c) {
         final int x = 10;
         final int y = 50;
-        final int width = 300;
-        final int height = 100;
+        final int width = 320;
+        final int height = 115;
 
         final Color bgColor = new Color(80, 20, 20, 240);
         final Color borderColor = new Color(255, 0, 0);
         final int textColor = new Color(255, 255, 255).getRGB();
         final int titleColor = new Color(255, 80, 80).getRGB();
+        final int urlColor = new Color(100, 180, 255).getRGB();
 
         c.fillRect(x - 2, y - 2, width + 4, height + 4, borderColor.getRGB(), 1);
         c.fillRect(x, y, width, height, bgColor.getRGB(), 1);
@@ -260,8 +268,9 @@ public class KyyzDartMaker extends Script {
         c.drawText("OUTDATED VERSION!", x + 10, y + 25, titleColor, FONT_TITLE);
 
         c.drawText("Your version: " + scriptVersion, x + 10, y + 50, textColor, FONT_LABEL);
-        c.drawText("Please update from GitHub!", x + 10, y + 70, textColor, FONT_LABEL);
-        c.drawText("Script will not run.", x + 10, y + 90, titleColor, FONT_LABEL);
+        c.drawText("See console - scroll to top!", x + 10, y + 70, urlColor, FONT_LABEL);
+        c.drawText("github.com/KyyzDev/OSMBScripts", x + 10, y + 85, textColor, FONT_LABEL);
+        c.drawText("Script will not run.", x + 10, y + 105, titleColor, FONT_LABEL);
     }
 
     private String formatNumber(int number) {
