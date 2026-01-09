@@ -132,15 +132,14 @@ public class KyyzDartMaker extends Script {
 
     @Override
     public int poll() {
+        if (authState != 1) return 0;
+
         if (System.currentTimeMillis() - lastCheck > 600000) {
             lastCheck = System.currentTimeMillis();
             if (!verifyAuth()) {
-                authState = -1;
-                tasks = null;
+                log(getClass().getSimpleName(), "New update available! Download from: " + UPDATE_URL);
             }
         }
-
-        if (authState != 1) return 0;
 
         if (tasks != null) {
             for (Task task : tasks) {

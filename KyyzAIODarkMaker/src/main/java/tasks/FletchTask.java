@@ -75,10 +75,15 @@ public class FletchTask extends Task {
             return true;
         }
 
-        if (tapSpeed < 100) {
-            int delay = (int) (30 * (100.0 / Math.max(tapSpeed, 1)));
-            script.submitTask(() -> false, script.random(delay / 2, delay));
+        int baseDelay = 15 + script.random(0, 15);
+        int speedDelay = (int) (30 * (100.0 / Math.max(tapSpeed, 1)));
+        int totalDelay = baseDelay + (tapSpeed < 100 ? speedDelay : 0);
+
+        if (script.random(1, 10) == 1) {
+            totalDelay += script.random(80, 150);
         }
+
+        script.submitTask(() -> false, script.random(totalDelay / 2, totalDelay));
 
         if (!primaryItem.interact(true)) {
             script.getWidgetManager().getInventory().unSelectItemIfSelected();
